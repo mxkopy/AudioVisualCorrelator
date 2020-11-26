@@ -72,7 +72,7 @@ def visualize_parameters(k):
 
 for path in os.listdir('./video'):
 
-    dataset = VideoDataset(path)
+    dataset = VideoDataset('./video/' + path)
     data = DataLoader(dataset)
 
     for epoch in range(4):
