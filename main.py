@@ -23,9 +23,9 @@ to_pil = torchvision.transforms.ToPILImage()
 
 loss = torch.nn.MSELoss()
 lr = 1e-2
-optimizer = Adam(list(encoder.parameters()) + list(encoder.parameters()), lr)
+optimizer = Adam(list(encoder.parameters()) + list(decoder.parameters()), lr)
 
-project_path = '/home/mxkopy/Programming/Python/AudioVisualCorrelator'
+project_path = '/home/mxkopy/Programming/AudioVisualCorrelator'
 model_path = project_path + '/models'
 
 
@@ -42,38 +42,80 @@ encoder.train()
 
 decoder.train()
 
-for epoch in range(4):
+num_encoder_params = 0
 
-    running_loss = 0.0
+for i in encoder.parameters():
+    num_encoder_params += 1
 
-    for batch in data:
+num_decoder_params = 0
 
-        optimizer.zero_grad()
+for i in decoder.parameters():
+    num_decoder_params += 1
 
-        video, audio = batch
+def visualize_parameters(k):
+    
+    encoder_params = encoder.parameters()
+    decoder_params = decoder.parameters() 
 
-        # audio = torch.transpose(audio, 1, 2)
+    img = np.zeros((3, (num_encoder_params  + num_decoder_params) * k, k * k))
 
-        img_out = decoder(encoder(video))
+    for i in range(num_encoder_params  // k):
 
-        truth = resize(video)
+        img[1 : 3, i * k : (i + 1) * k, : ] = np.average(encoder_params[i].detach().numpy())
 
-        curr_loss = loss(img_out, truth)
+    for i in range(num_decoder_params // k):
 
-        running_loss += curr_loss.item()
+        img[0 : 2, i * k : (i + 1) * k, : ] = np.average(decoder_params[i].detach().numpy())
 
-        # running_loss += loss(img_out, truth)
+    return img
 
-        curr_loss.backward()
 
-        optimizer.step()
+for path in os.listdir('./video'):
 
-        print(running_loss)
+    dataset = VideoDataset(path)
+    data = DataLoader(dataset)
 
-        # print(img_out)
+    for epoch in range(4):
 
-        cv.imshow('woa', (img_out[0].detach().numpy().transpose(2, 1, 0) * 255 + 127))
+        running_loss = 0.0
 
-        cv.waitKey(1)
+        for batch in data:
+
+            optimizer.zero_grad()
+
+            video, audio = batch
+
+            # audio = torch.transpose(audio, 1, 2)
+
+            img_out = decoder(encoder(video))
+
+            truth = resize(video)
+
+            curr_loss = loss(img_out, truth)
+
+            running_loss += curr_loss.item()
+
+            # running_loss += loss(img_out, truth)
+
+            curr_loss.backward()
+
+            optimizer.step()
+
+            # print(running_loss)
+
+            # print(img_out)
+            
+            # img = visualize_parameters(10)
+
+            cv.imshow('woa', (img_out[0].detach().numpy().transpose(2, 1, 0)*255 + 127))
+
+            cv.waitKey(1)
+
+        
+        torch.save({
+            'encoder' : encoder.state_dict(),
+            'decoder' : decoder.state_dict(),
+            'optimizer' : optimizer.state_dict() },'./models/model.pt')
+
 
 cv.destroyAllWindows()
