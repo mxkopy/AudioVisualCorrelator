@@ -42,13 +42,13 @@ class ImageEncoder(torch.nn.Module):
         out = self.relu1(out)
         out = self.pool1(out)
 
-        # out = self.conv2(out)
-        # out = self.relu2(out)
-        # out = self.pool2(out)
+        out = self.conv2(out)
+        out = self.relu2(out)
+        out = self.pool2(out)
 
-        # out = self.conv3(out)
-        # out = self.relu3(out)
-        # out = self.pool3(out)
+        out = self.conv3(out)
+        out = self.relu3(out)
+        out = self.pool3(out)
 
         return out
 
@@ -78,15 +78,15 @@ class ImageDecoder(torch.nn.Module):
 
     def forward(self, x):
 
-        # out = self.deconv1(x)
-        # out = self.relu1(out)
-        # out = self.pool1(out)
+        out = self.deconv1(x)
+        out = self.relu1(out)
+        out = self.pool1(out)
 
-        # out = self.deconv2(out)
-        # out = self.relu2(out)
-        # out = self.pool2(out)
+        out = self.deconv2(out)
+        out = self.relu2(out)
+        out = self.pool2(out)
 
-        out = self.deconv3(x)
+        out = self.deconv3(out)
         out = self.relu3(out)
         out = self.pool3(out)
 
@@ -139,3 +139,4 @@ class AudioDecoder(torch.nn.Module):
 
         self.deconv3 = torch.nn.ConvTranspose1d(4, 3, 1, 3)
         self.relu3 = torch.nn.ReLU()
+

@@ -25,12 +25,11 @@ loss = torch.nn.MSELoss()
 lr = 1e-2
 optimizer = Adam(list(encoder.parameters()) + list(decoder.parameters()), lr)
 
-project_path = '/home/mxkopy/Programming/AudioVisualCorrelator'
-model_path = project_path + '/models'
+model_path = os.getcwd() + '/models'
 
 
 # dynamic, might wanna find a way to crawl through /video
-video_path = project_path + '/video/video.mp4'
+video_path = os.getcwd() + '/video/video.mp4'
 
 dataset = VideoDataset(video_path)
 data = DataLoader(dataset, batch_size=4)
@@ -70,9 +69,18 @@ def visualize_parameters(k):
     return img
 
 
-for path in os.listdir('./video'):
 
-    dataset = VideoDataset('./video/' + path)
+encoder = ImageEncoder()
+decdoer = ImageDecoder()
+
+encoder_state_dict, decoder_state_dict, optimizer,  = torch.load(os.getcwd() + '/models/model.pt')
+
+
+
+if False:
+for path in os.listdir('./video/'):
+
+    dataset = VideoDataset(os.getcwd() + '/video/' + path)
     data = DataLoader(dataset)
 
     for epoch in range(4):
@@ -101,15 +109,15 @@ for path in os.listdir('./video'):
 
             optimizer.step()
 
-            # print(running_loss)
+            print(running_loss)
 
             # print(img_out)
             
             # img = visualize_parameters(10)
 
-            cv.imshow('woa', (img_out[0].detach().numpy().transpose(2, 1, 0)*255 + 127))
+            # cv.imshow('woa', (img_out[0].detach().numpy().transpose(2, 1, 0)*255 + 127))
 
-            cv.waitKey(1)
+            # cv.waitKey(1)
 
         
         torch.save({
@@ -118,5 +126,5 @@ for path in os.listdir('./video'):
             'optimizer' : optimizer.state_dict() },'./models/model.pt')
 
 
-cv.destroyAllWindows()
+cv.destroyAllWindows() *#
 
