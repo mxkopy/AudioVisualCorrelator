@@ -9,6 +9,8 @@ from torch.utils.data import Dataset
 
 torchvision.set_video_backend('video_reader')
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 class VideoDataset(Dataset):
 
 
@@ -25,7 +27,7 @@ class VideoDataset(Dataset):
         self.data = []
         self.store_data = store_data
 
-        self.transform = lambda x : (x - 127) / 255
+        self.transform = lambda x : (x.to(device) - 127) / 255
 
     def __getitem__(self, index):
 

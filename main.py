@@ -13,8 +13,11 @@ from AVC import *
 
 # static things, probably wont change between training loops
 
-encoder = ImageEncoder()
-decoder = ImageDecoder()
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+encoder = ImageEncoder().to(device)
+decoder = ImageDecoder().to(device)
 
 audio_encoder = AudioEncoder()
 audio_decoder = AudioDecoder()
@@ -76,12 +79,10 @@ def visualize_parameters(k):
 
 
 
-def train():
+def train(clean_up_index=100):
 
     encoder = ImageEncoder()
     decdoer = ImageDecoder()
-
-
 
     for path in os.listdir('./video/'):
 
@@ -95,6 +96,8 @@ def train():
             for video, audio in data:
 
                 optimizer.zero_grad()
+
+                video = video.to('cuda')
 
                 img_out = encoder(video)
 
@@ -117,19 +120,20 @@ def train():
                 
                 # img = visualize_parameters(10)
 
-                cv.imshow('woa', (img_out[0].detach().numpy().transpose(2, 1, 0) + 0.5))
-                cv.imshow('truth', truth[0].detach().numpy().transpose(2, 1, 0) / 255)
+                cv.imshow('woa', (img_out[0].cpu().detach().numpy().transpose(2, 1, 0) + 0.5))
+                cv.imshow('truth', truth[0].cpu().detach().numpy().transpose(2, 1, 0))
 
                 cv.waitKey(1)
 
-            
+            if i > clean_up_index:
+                cv.destroyAllWindows() 
+
             torch.save({
                 'encoder' : encoder.state_dict(),
                 'decoder' : decoder.state_dict(),
                 'optimizer' : optimizer.state_dict() },'./models/model.pt')
 
 
-    cv.destroyAllWindows() 
 
 
 
@@ -141,6 +145,7 @@ def test():
         cv.waitKey(1)
 
 
-# train()
 
-test()
+train()
+
+#test()

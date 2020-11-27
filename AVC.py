@@ -21,19 +21,19 @@ class ImageEncoder(torch.nn.Module):
         super(ImageEncoder, self).__init__()
 
         # Input is a sizable convolution, hopefully removes noise
-        self.conv1 = torch.nn.Conv2d(3, 4, 5, 2, 1)
-        self.relu1 = torch.nn.ReLU()
-        self.pool1 = torch.nn.AdaptiveAvgPool2d((256, 256))
+        self.conv1 = torch.nn.Conv2d(3, 4, 5, 2, 1).cuda()
+        self.relu1 = torch.nn.ReLU().cuda()
+        self.pool1 = torch.nn.AdaptiveAvgPool2d((256, 256)).cuda()
 
-        self.conv2 = torch.nn.Conv2d(4, 8, 3, 2)
-        self.relu2 = torch.nn.ReLU()
-        self.pool2 = torch.nn.AdaptiveAvgPool2d((64, 64))
+        self.conv2 = torch.nn.Conv2d(4, 8, 3, 2).cuda()
+        self.relu2 = torch.nn.ReLU().cuda()
+        self.pool2 = torch.nn.AdaptiveAvgPool2d((64, 64)).cuda()
 
-        self.conv3 = torch.nn.Conv2d(8, 16, 3, 1)
-        self.relu3 = torch.nn.ReLU()
-        self.pool3 = torch.nn.AdaptiveAvgPool2d((8, 8))
+        self.conv3 = torch.nn.Conv2d(8, 16, 3, 1).cuda()
+        self.relu3 = torch.nn.ReLU().cuda()
+        self.pool3 = torch.nn.AdaptiveAvgPool2d((8, 8)).cuda()
 
-        self.out = torch.nn.ReLU()
+        self.out = torch.nn.ReLU().cuda()
 
 
     def forward(self, x):
@@ -60,18 +60,18 @@ class ImageDecoder(torch.nn.Module):
 
         super(ImageDecoder, self).__init__()
 
-        self.deconv1 = torch.nn.ConvTranspose2d(16, 8, 8, 3)
-        self.relu1 = torch.nn.ReLU()
-        self.pool1 = torch.nn.AdaptiveAvgPool2d((8, 8))
+        self.deconv1 = torch.nn.ConvTranspose2d(16, 8, 8, 3).cuda()
+        self.relu1 = torch.nn.ReLU().cuda()
+        self.pool1 = torch.nn.AdaptiveAvgPool2d((8, 8)).cuda()
 
 
-        self.deconv2 = torch.nn.ConvTranspose2d(8, 4, 5, 2)
-        self.relu2 = torch.nn.ReLU()
-        self.pool2 = torch.nn.AdaptiveAvgPool2d((64, 64))
+        self.deconv2 = torch.nn.ConvTranspose2d(8, 4, 5, 2).cuda()
+        self.relu2 = torch.nn.ReLU().cuda()
+        self.pool2 = torch.nn.AdaptiveAvgPool2d((64, 64)).cuda()
 
-        self.deconv3 = torch.nn.ConvTranspose2d(4, 3, 3, 1)
-        self.relu3 = torch.nn.ReLU()
-        self.pool3 = torch.nn.AdaptiveAvgPool2d((512, 512))
+        self.deconv3 = torch.nn.ConvTranspose2d(4, 3, 3, 1).cuda()
+        self.relu3 = torch.nn.ReLU().cuda()
+        self.pool3 = torch.nn.AdaptiveAvgPool2d((512, 512)).cuda()
 
 
 
@@ -99,14 +99,14 @@ class AudioEncoder(torch.nn.Module):
         
         super(AudioEncoder, self).__init__()
 
-        self.conv1 = torch.nn.Conv1d(2, 4, 5, 2)
-        self.relu1 = torch.nn.ReLU()
+        self.conv1 = torch.nn.Conv1d(2, 4, 5, 2).cuda()
+        self.relu1 = torch.nn.ReLU().cuda()
 
-        self.conv2 = torch.nn.Conv1d(4, 8, 3, 1)
-        self.relu2 = torch.nn.ReLU()
+        self.conv2 = torch.nn.Conv1d(4, 8, 3, 1).cuda()
+        self.relu2 = torch.nn.ReLU().cuda()
 
-        self.conv3 = torch.nn.Conv1d(8, 16, 3, 1)
-        self.relu3 = torch.nn.ReLU()
+        self.conv3 = torch.nn.Conv1d(8, 16, 3, 1).cuda()
+        self.relu3 = torch.nn.ReLU().cuda()
 
         self.pool1 = torch.nn.AdaptiveAvgPool1d(64)
 
@@ -130,12 +130,12 @@ class AudioDecoder(torch.nn.Module):
 
         super(AudioDecoder, self).__init__()
 
-        self.deconv1 = torch.nn.ConvTranspose1d(16, 8, 1, 8)
-        self.relu1 = torch.nn.ReLU()
+        self.deconv1 = torch.nn.ConvTranspose1d(16, 8, 1, 8).cuda()
+        self.relu1 = torch.nn.ReLU().cuda()
 
-        self.deconv2 = torch.nn.ConvTranspose1d(8, 4, 1, 3)
-        self.relu2 = torch.nn.ReLU()
+        self.deconv2 = torch.nn.ConvTranspose1d(8, 4, 1, 3).cuda()
+        self.relu2 = torch.nn.ReLU().cuda()
 
-        self.deconv3 = torch.nn.ConvTranspose1d(4, 3, 1, 3)
-        self.relu3 = torch.nn.ReLU()
+        self.deconv3 = torch.nn.ConvTranspose1d(4, 3, 1, 3).cuda()
+        self.relu3 = torch.nn.ReLU().cuda()
 
