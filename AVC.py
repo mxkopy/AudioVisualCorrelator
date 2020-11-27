@@ -39,15 +39,15 @@ class ImageEncoder(torch.nn.Module):
     def forward(self, x):
 
         out = self.conv1(x)
-        out = self.relu1(out)
+        # out = self.relu1(out)
         out = self.pool1(out)
 
         out = self.conv2(out)
-        out = self.relu2(out)
+        # out = self.relu2(out)
         out = self.pool2(out)
 
         out = self.conv3(out)
-        out = self.relu3(out)
+        # out = self.relu3(out)
         out = self.pool3(out)
 
         return out
@@ -60,17 +60,16 @@ class ImageDecoder(torch.nn.Module):
 
         super(ImageDecoder, self).__init__()
 
-        self.deconv1 = torch.nn.ConvTranspose2d(16, 8, 3, 8)
+        self.deconv1 = torch.nn.ConvTranspose2d(16, 8, 8, 3)
         self.relu1 = torch.nn.ReLU()
         self.pool1 = torch.nn.AdaptiveAvgPool2d((8, 8))
 
 
-        self.deconv2 = torch.nn.ConvTranspose2d(8, 4, 2, 5)
+        self.deconv2 = torch.nn.ConvTranspose2d(8, 4, 5, 2)
         self.relu2 = torch.nn.ReLU()
         self.pool2 = torch.nn.AdaptiveAvgPool2d((64, 64))
 
-
-        self.deconv3 = torch.nn.ConvTranspose2d(4, 3, 1, 3)
+        self.deconv3 = torch.nn.ConvTranspose2d(4, 3, 3, 1)
         self.relu3 = torch.nn.ReLU()
         self.pool3 = torch.nn.AdaptiveAvgPool2d((512, 512))
 
@@ -79,15 +78,15 @@ class ImageDecoder(torch.nn.Module):
     def forward(self, x):
 
         out = self.deconv1(x)
-        out = self.relu1(out)
+        # out = self.relu1(out)
         out = self.pool1(out)
 
         out = self.deconv2(out)
-        out = self.relu2(out)
+        # out = self.relu2(out)
         out = self.pool2(out)
 
         out = self.deconv3(out)
-        out = self.relu3(out)
+        # out = self.relu3(out)
         out = self.pool3(out)
 
         return out

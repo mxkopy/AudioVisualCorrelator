@@ -73,11 +73,8 @@ def visualize_parameters(k):
 encoder = ImageEncoder()
 decdoer = ImageDecoder()
 
-encoder_state_dict, decoder_state_dict, optimizer,  = torch.load(os.getcwd() + '/models/model.pt')
 
 
-
-if False:
 for path in os.listdir('./video/'):
 
     dataset = VideoDataset(os.getcwd() + '/video/' + path)
@@ -93,9 +90,9 @@ for path in os.listdir('./video/'):
 
             video, audio = batch
 
-            # audio = torch.transpose(audio, 1, 2)
+            img_out = encoder(video)
 
-            img_out = decoder(encoder(video))
+            img_out = decoder(img_out)
 
             truth = resize(video)
 
@@ -103,21 +100,22 @@ for path in os.listdir('./video/'):
 
             running_loss += curr_loss.item()
 
-            # running_loss += loss(img_out, truth)
-
             curr_loss.backward()
 
             optimizer.step()
 
+            print(img_out[0])
+
             print(running_loss)
+            print(curr_loss.detach())
 
             # print(img_out)
             
             # img = visualize_parameters(10)
 
-            # cv.imshow('woa', (img_out[0].detach().numpy().transpose(2, 1, 0)*255 + 127))
+            cv.imshow('woa', (img_out[0].detach().numpy().transpose(2, 1, 0)*255 + 127))
 
-            # cv.waitKey(1)
+            cv.waitKey(1)
 
         
         torch.save({
@@ -126,5 +124,5 @@ for path in os.listdir('./video/'):
             'optimizer' : optimizer.state_dict() },'./models/model.pt')
 
 
-cv.destroyAllWindows() *#
+cv.destroyAllWindows() 
 
