@@ -7,8 +7,6 @@ from torch.utils.data import Dataset
 
 # Contains the classes for the datasets that will be loaded in main.py
 
-# TODO: Make this an iterator
-
 torchvision.set_video_backend('video_reader')
 
 class VideoDataset(Dataset):

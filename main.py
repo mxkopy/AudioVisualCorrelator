@@ -51,6 +51,12 @@ num_decoder_params = 0
 for i in decoder.parameters():
     num_decoder_params += 1
 
+
+
+
+
+
+
 def visualize_parameters(k):
     
     encoder_params = encoder.parameters()
@@ -70,59 +76,71 @@ def visualize_parameters(k):
 
 
 
-encoder = ImageEncoder()
-decdoer = ImageDecoder()
+def train():
+
+    encoder = ImageEncoder()
+    decdoer = ImageDecoder()
 
 
 
-for path in os.listdir('./video/'):
+    for path in os.listdir('./video/'):
 
-    dataset = VideoDataset(os.getcwd() + '/video/' + path)
-    data = DataLoader(dataset)
+        dataset = VideoDataset(os.getcwd() + '/video/' + path)
+        data = DataLoader(dataset)
 
-    for epoch in range(4):
+        for epoch in range(4):
 
-        running_loss = 0.0
+            running_loss = 0.0
 
-        for batch in data:
+            for video, audio in data:
 
-            optimizer.zero_grad()
+                optimizer.zero_grad()
 
-            video, audio = batch
+                img_out = encoder(video)
 
-            img_out = encoder(video)
+                img_out = decoder(img_out)
 
-            img_out = decoder(img_out)
+                truth = resize(video)
 
-            truth = resize(video)
+                curr_loss = loss(img_out, truth)
 
-            curr_loss = loss(img_out, truth)
+                running_loss += curr_loss.item()
 
-            running_loss += curr_loss.item()
+                curr_loss.backward()
 
-            curr_loss.backward()
+                optimizer.step()
 
-            optimizer.step()
+                print(running_loss)
+                print(curr_loss.detach())
 
-            print(img_out[0])
+                # print(img_out)
+                
+                # img = visualize_parameters(10)
 
-            print(running_loss)
-            print(curr_loss.detach())
+                cv.imshow('woa', (img_out[0].detach().numpy().transpose(2, 1, 0) + 0.5))
+                cv.imshow('truth', truth[0].detach().numpy().transpose(2, 1, 0) / 255)
 
-            # print(img_out)
+                cv.waitKey(1)
+
             
-            # img = visualize_parameters(10)
-
-            cv.imshow('woa', (img_out[0].detach().numpy().transpose(2, 1, 0)*255 + 127))
-
-            cv.waitKey(1)
-
-        
-        torch.save({
-            'encoder' : encoder.state_dict(),
-            'decoder' : decoder.state_dict(),
-            'optimizer' : optimizer.state_dict() },'./models/model.pt')
+            torch.save({
+                'encoder' : encoder.state_dict(),
+                'decoder' : decoder.state_dict(),
+                'optimizer' : optimizer.state_dict() },'./models/model.pt')
 
 
-cv.destroyAllWindows() 
+    cv.destroyAllWindows() 
 
+
+
+def test():
+
+    for img, audio in data:
+
+        cv.imshow('woa', img[0].permute(2, 1, 0).detach().numpy())
+        cv.waitKey(1)
+
+
+# train()
+
+test()
