@@ -13,6 +13,8 @@ import os
 # The network, given the sound, creates a test output in that space. Training is done
 # over the MSE loss of test vectors and truth vectors. 
 
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
 class ImageEncoder(torch.nn.Module):
 
 
@@ -20,19 +22,19 @@ class ImageEncoder(torch.nn.Module):
 
         super(ImageEncoder, self).__init__()
 
-        self.relu1 = torch.nn.ReLU().cuda()
-        self.relu2 = torch.nn.ReLU().cuda()
+        self.relu1 = torch.nn.ReLU().to(device)
+        self.relu2 = torch.nn.ReLU().to(device)
 
-        self.pool1 = torch.nn.AdaptiveAvgPool2d((512, 512)).cuda()
-        self.pool2 = torch.nn.AdaptiveAvgPool2d((64, 64)).cuda()
+        self.pool1 = torch.nn.AdaptiveAvgPool2d((512, 512)).to(device)
+        self.pool2 = torch.nn.AdaptiveAvgPool2d((64, 64)).to(device)
 
-        self.conv1 = torch.nn.Conv2d(3, 3, 1, 1).cuda()
-        self.conv2 = torch.nn.Conv2d(3, 4, 3, 2).cuda()
-        self.conv3 = torch.nn.Conv2d(4, 8, 3, 1).cuda()
-        self.conv4 = torch.nn.Conv2d(8, 12, 1, 1).cuda()
-        self.conv5 = torch.nn.Conv2d(12, 16, 3, 1).cuda()
+        self.conv1 = torch.nn.Conv2d(3, 3, 1, 1).to(device)
+        self.conv2 = torch.nn.Conv2d(3, 4, 3, 2).to(device)
+        self.conv3 = torch.nn.Conv2d(4, 8, 3, 1).to(device)
+        self.conv4 = torch.nn.Conv2d(8, 12, 3, 1).to(device)
+        self.conv5 = torch.nn.Conv2d(12, 16, 1, 1).to(device)
 
-        self.out = torch.nn.ReLU().cuda()
+        self.out = torch.nn.ReLU().to(device)
 
 
     def forward(self, x):
@@ -60,13 +62,13 @@ class ImageDecoder(torch.nn.Module):
 
         super(ImageDecoder, self).__init__()
 
-        self.pool = torch.nn.AdaptiveAvgPool2d((512, 512)).cuda()
+        self.pool = torch.nn.AdaptiveAvgPool2d((512, 512)).to(device)
 
-        self.deconv1 = torch.nn.ConvTranspose2d(16, 12, 3, 1).cuda()
-        self.deconv2 = torch.nn.ConvTranspose2d(12, 8, 1, 1).cuda()
-        self.deconv3 = torch.nn.ConvTranspose2d(8, 4, 3, 1).cuda()
-        self.deconv4 = torch.nn.ConvTranspose2d(4, 3, 3, 2).cuda()
-        self.deconv5 = torch.nn.ConvTranspose2d(3, 3, 1, 1).cuda()
+        self.deconv1 = torch.nn.ConvTranspose2d(16, 12, 1, 1).to(device)
+        self.deconv2 = torch.nn.ConvTranspose2d(12, 8, 3, 1).to(device)
+        self.deconv3 = torch.nn.ConvTranspose2d(8, 4, 3, 1).to(device)
+        self.deconv4 = torch.nn.ConvTranspose2d(4, 3, 3, 2).to(device)
+        self.deconv5 = torch.nn.ConvTranspose2d(3, 3, 1, 1).to(device)
 
 
 
@@ -90,16 +92,16 @@ class AudioEncoder(torch.nn.Module):
         
         super(AudioEncoder, self).__init__()
 
-        self.conv1 = torch.nn.Conv1d(2, 2, 1, 1).cuda()
-        self.relu1 = torch.nn.ReLU().cuda()
+        self.conv1 = torch.nn.Conv1d(2, 2, 1, 1).to(device)
+        self.relu1 = torch.nn.ReLU().to(device)
 
-        self.conv2 = torch.nn.Conv1d(2, 4, 3, 2).cuda()
-        self.relu2 = torch.nn.ReLU().cuda()
+        self.conv2 = torch.nn.Conv1d(2, 4, 3, 2).to(device)
+        self.relu2 = torch.nn.ReLU().to(device)
 
-        self.conv3 = torch.nn.Conv1d(4, 16, 3, 1).cuda()
-        self.relu3 = torch.nn.ReLU().cuda()
+        self.conv3 = torch.nn.Conv1d(4, 16, 3, 1).to(device)
+        self.relu3 = torch.nn.ReLU().to(device)
 
-        self.conv4= torch.nn.Conv1d(4, 16, 3, 1).cuda()
+        self.conv4= torch.nn.Conv1d(4, 16, 3, 1).to(device)
 
         self.pool1 = torch.nn.AdaptiveAvgPool1d(64)
 
@@ -123,12 +125,12 @@ class AudioDecoder(torch.nn.Module):
 
         super(AudioDecoder, self).__init__()
 
-        self.deconv1 = torch.nn.ConvTranspose1d(16, 8, 1, 8).cuda()
-        self.relu1 = torch.nn.ReLU().cuda()
+        self.deconv1 = torch.nn.ConvTranspose1d(16, 8, 1, 8).to(device)
+        self.relu1 = torch.nn.ReLU().to(device)
 
-        self.deconv2 = torch.nn.ConvTranspose1d(8, 4, 1, 3).cuda()
-        self.relu2 = torch.nn.ReLU().cuda()
+        self.deconv2 = torch.nn.ConvTranspose1d(8, 4, 1, 3).to(device)
+        self.relu2 = torch.nn.ReLU().to(device)
 
-        self.deconv3 = torch.nn.ConvTranspose1d(4, 3, 1, 1).cuda()
-        self.relu3 = torch.nn.ReLU().cuda()
+        self.deconv3 = torch.nn.ConvTranspose1d(4, 3, 1, 1).to(device)
+        self.relu3 = torch.nn.ReLU().to(device)
 

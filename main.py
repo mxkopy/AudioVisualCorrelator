@@ -31,7 +31,7 @@ loss = torch.nn.MSELoss()
 lr = 1e-2
 optimizer = Adam(list(encoder.parameters()) + list(decoder.parameters()), lr)
 
-project_path = os.getcwd() + '/AudioVisualCorrelator'
+project_path = os.getcwd()
 
 model_path = project_path + '/models'
 
@@ -79,7 +79,7 @@ def train(clean_up_index=100):
             for video, audio in data:
 
                 optimizer.zero_grad()
-                video = video.to('cuda')
+                video = video.to(device)
 
                 img_out = encoder(video)
                 img_out = decoder(img_out)
@@ -125,6 +125,8 @@ def test():
         cv.waitKey(1)
 
 
+for p in encoder.parameters():
+    print(p.data.shape)
 
 # train()
 
