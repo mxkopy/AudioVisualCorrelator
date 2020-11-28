@@ -1,8 +1,10 @@
 import torch 
 import torchvision
-import matplotlib.pyplot as plt
 import numpy as np
+
 import cv2 as cv 
+import sounddevices as sd
+
 import os
 
 from torch.utils.data.dataloader import DataLoader
@@ -29,7 +31,7 @@ decoder.train()
 to_pil = torchvision.transforms.ToPILImage()
 
 loss = torch.nn.MSELoss()
-lr = 1e-2
+lr = 1e-4
 optimizer = Adam(list(encoder.parameters()) + list(decoder.parameters()), lr)
 
 project_path = os.getcwd()
@@ -37,8 +39,6 @@ project_path = os.getcwd()
 model_path = project_path + '/models'
 
 # find a way to plug these values in
-resize = torchvision.transforms.Resize((512, 512))
-
 
 num_encoder_params = 0
 num_decoder_params = 0
@@ -51,6 +51,8 @@ num_decoder_params = 0
 for i in decoder.parameters():
     num_decoder_params += 1
 
+dataset = VideoDataset(project_path + '/video/video.mp4')
+data = DataLoader(dataset)
 
 def visualize_parameters(n):
     
@@ -76,8 +78,10 @@ def train(clean_up_index=100):
 
     for path in os.listdir(project_path + '/video'):
 
-        dataset = VideoDataset(project_path + '/video' + path)
+        dataset = VideoDataset(project_path + '/video/' + path)
         data = DataLoader(dataset)
+
+        resize = torchvision.transforms.Resize((512, 512))
 
         for epoch in range(4):
 
@@ -91,30 +95,26 @@ def train(clean_up_index=100):
                 video = video.to(device)
 
                 img_out = encoder(video)
+                # img_out[0][1][0] *= torch.rand(1).to(device)
                 img_out = decoder(img_out)
 
-                truth = resize(video)
-
-                curr_loss = loss(img_out, truth)
+                curr_loss = loss(img_out, resize(video))
                 running_loss += curr_loss.item()
 
                 curr_loss.backward()
                 optimizer.step()
 
-                print(running_loss)
-                print(curr_loss.detach())
-
-                img = Image.fromarray(img_out[0].cpu().detach().numpy().transpose(2, 1, 0) * 255 + 127, 'RGB')
-                img.show()
+                # print(running_loss)
+                # print(curr_loss.detach())
 
                 # print(img_out)
                 
                 # img = visualize_parameters(8)
 
-                # cv.imshow('woa', (img_out[0].cpu().detach().numpy().transpose(2, 1, 0) + 0.5))
-                # cv.imshow('truth', truth[0].cpu().detach().numpy().transpose(2, 1, 0))
+                cv.imshow('woa', (img_out[0].cpu().detach().numpy().transpose(2, 1, 0) + 0.5))
+                cv.imshow('truth', video[0].cpu().detach().numpy().transpose(2, 1, 0))
 
-                # cv.waitKey(1)
+                cv.waitKey(1)
 
             if clean_index > clean_up_index:
                 cv.destroyAllWindows() 
@@ -128,6 +128,29 @@ def train(clean_up_index=100):
                 'optimizer' : optimizer.state_dict() }, project_path + '/models/model.pt')
 
 
+def audio_training():
+
+    for path in os.listdir(project_path + '/video'):
+
+        dataset = VideoDataset(project_path + '/video/' + path)
+        data = DataLoader(dataset)
+
+        resize = torch.nn.AdaptiveAvgPool1d(dataset[0][1].shape[1])
+
+        with sd.OutputStream(samplerate=int(dataset.info['audio']['framerate'][0])):
+
+            for epoch in range(4):
+
+                for video, audio in data
+
+
+                    out = audio_encoder(audio.to(device))
+                    
+                    sd.play()
+
+                    print(audio.shape)
+                    print(resize(audio_decoder(audio_encoder(audio.to(device)))).shape)
+
 
 def test():
 
@@ -140,6 +163,10 @@ def test():
 for p in encoder.parameters():
     print(p.data.shape)
 
-train()
+# train()
+
+audio_training()
 
 #test()
+
+print(int(dataset.info['audio']['framerate'][0]))

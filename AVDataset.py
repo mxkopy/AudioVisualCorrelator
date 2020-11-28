@@ -59,7 +59,7 @@ class VideoDataset(Dataset):
 
                 return self.__getitem__(index)
 
-        return self.transform(video_data), audio_data
+        return self.transform(video_data), audio_data.transpose(1, 0)
 
 
     def __len__(self):
