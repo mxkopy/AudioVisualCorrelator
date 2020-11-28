@@ -47,10 +47,10 @@ class ImageEncoder(torch.nn.Module):
         out = self.pool2(out)
 
         out = self.conv3(out)
-        out = self.conv4(out)
+        # out = self.conv4(out)
 
-        out = self.relu2(out)
-        out = self.conv5(out)
+        # out = self.relu2(out)
+        # out = self.conv5(out)
 
         return out
 
@@ -74,9 +74,9 @@ class ImageDecoder(torch.nn.Module):
 
     def forward(self, x):
 
-        out = self.deconv1(x)
-        out = self.deconv2(out)
-        out = self.deconv3(out)
+        # out = self.deconv1(x)
+        # out = self.deconv2(x)
+        out = self.deconv3(x)
         out = self.deconv4(out)
         out = self.deconv5(out)
 
