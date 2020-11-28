@@ -144,10 +144,12 @@ def audio_training():
                 for video, audio in data
 
 
-                    out = audio_encoder(audio.to(device))
-                    
-                    sd.play()
+                    sd.play(audio.detach().numpy())
 
+                    # out = audio_encoder(audio.to(device))
+
+                    # out = audio_decoder(out)
+                    
                     print(audio.shape)
                     print(resize(audio_decoder(audio_encoder(audio.to(device)))).shape)
 
