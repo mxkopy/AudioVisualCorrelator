@@ -42,19 +42,22 @@ data = DataLoader(dataset)
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-encoder = ImageEncoder().to(device)
-decoder = ImageDecoder().to(device)
+video_encoder = ImageEncoder().to(device)
+video_decoder = ImageDecoder().to(device)
+audio_encoder = AudioEncoder().to(device)
+audio_decoder = AudioDecoder().to(device)
 
-audio_encoder = AudioEncoder()
-audio_decoder = AudioDecoder()
-
-encoder.train()
-decoder.train()
+video_encoder.train()
+video_decoder.train()
+audio_encoder.train()
+audio_decoder.train()
 
 to_pil = torchvision.transforms.ToPILImage()
 
 loss = torch.nn.MSELoss()
-optimizer = Adam(list(encoder.parameters()) + list(decoder.parameters()), lr)
+video_optimizer = Adam(list(video_encoder.parameters()) + list(video_decoder.parameters()), lr)
+audio_optimizer = Adam(list(audio_encoder.parameters()) + list(audio_decoder.parameters()), lr)
+
 
 # Helper function that counts how many parameters a model has (pytorch does not natively support this)
 def num_params(model):
@@ -91,11 +94,11 @@ def video_train(clean_up_limit=100):
 
             for video in data:
 
-                optimizer.zero_grad()
+                video_optimizer.zero_grad()
                 video = video.to(device)
 
-                img_out = encoder(video)
-                img_out = decoder(img_out)
+                img_out = video_encoder(video)
+                img_out = video_decoder(img_out)
 
                 video = resize(video)
 
@@ -103,7 +106,7 @@ def video_train(clean_up_limit=100):
                 running_loss += curr_loss.item()
 
                 curr_loss.backward()
-                optimizer.step()
+                video_optimizer.step()
 
                 # Info display
 
@@ -130,12 +133,12 @@ def video_train(clean_up_limit=100):
             clean_index += 1
 
             torch.save({
-                'encoder' : encoder.state_dict(),
-                'decoder' : decoder.state_dict(),
-                'optimizer' : optimizer.state_dict() }, project_path + '/models/model.pt')
+                'encoder' : video_encoder.state_dict(),
+                'decoder' : video_decoder.state_dict(),
+                'optimizer' : video_optimizer.state_dict() }, project_path + '/models/video_model.pt')
 
 
-def audio_training(clean_up_limit=dataset.audio_info['sample_rate'] * 10):
+def audio_training(clean_up_limit=100):
 
     # helper variable that determines the name of the saved file
 
@@ -144,21 +147,38 @@ def audio_training(clean_up_limit=dataset.audio_info['sample_rate'] * 10):
     for path in os.listdir(project_path + '/video'):
 
         dataset = AudioVisualDataset(project_path + '/video/' + path, streams=1)
-        data = DataLoader(dataset)
+        data = DataLoader(dataset, batch_size=batch_size)
 
-        resize = torch.nn.AdaptiveAvgPool1d(dataset.a_v_ratio)
+        resize = torch.nn.AdaptiveAvgPool1d(dataset[0].shape[1])
 
         for _ in range(epochs):
 
             saved_data = []
-
             clean_index = 0
+            running_loss = 0.0
 
-            for audio in dataset:
+            for audio in data:
 
-                saved_data.append(audio)
+                print(dataset[0].shape[1])
+                
+                audio_optimizer.zero_grad()
+
+                out = audio_encoder(audio.to(device))
+                out = resize(audio_decoder(out))
+
+                curr_loss = loss(resize(out), audio)
+
+                saved_data.append(resize(out).view(2, -1))
+                
+                running_loss += curr_loss.item()
+                print(out)
+
+                curr_loss.backward()
+                audio_optimizer.step()
 
                 if clean_index > clean_up_limit:
+
+                    print('issa YO')
 
                     saved_data = torch.cat(saved_data, dim=1).view(2, -1).detach().clone()
 

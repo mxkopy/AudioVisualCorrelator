@@ -50,7 +50,7 @@ LAYERS_DEC = [channels + kernels for channels, kernels in zip(CHANNELS_DEC, KERN
 class ImageEncoder(torch.nn.Module):
 
 
-    def __init__(self):
+    def __init__(self, bandwidth_limit=BANDWIDTH_LIMIT):
 
         super(ImageEncoder, self).__init__()
 
@@ -58,7 +58,7 @@ class ImageEncoder(torch.nn.Module):
         self.relu2 = torch.nn.ReLU().to(device)
 
         self.pool1 = torch.nn.AdaptiveAvgPool2d((512, 512)).to(device)
-        self.pool2 = torch.nn.AdaptiveAvgPool2d((BANDWIDTH_LIMIT, BANDWIDTH_LIMIT)).to(device)
+        self.pool2 = torch.nn.AdaptiveAvgPool2d((bandwidth_limit, bandwidth_limit)).to(device)
 
         self.conv1 = torch.nn.Conv2d(*LAYERS_ENC[0]).to(device)
         self.conv2 = torch.nn.Conv2d(*LAYERS_ENC[1]).to(device)
@@ -130,31 +130,17 @@ class ImageDecoder(torch.nn.Module):
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 class AudioEncoder(torch.nn.Module):
 
-
-    def __init__(self):
+    # bandwidth_limit determines the size of the last pooled connection. It should be the same size as the video encoder's. 
+    def __init__(self, bandwidth_limit=BANDWIDTH_LIMIT):
         
         super(AudioEncoder, self).__init__()
-
-        self.pool = torch.nn.AdaptiveAvgPool1d(BANDWIDTH_LIMIT * BANDWIDTH_LIMIT)
+        
+        self.pool1 = torch.nn.AdaptiveAvgPool1d(10000)
+        self.pool2 = torch.nn.AdaptiveAvgPool1d(bandwidth_limit * bandwidth_limit)
 
         self.relu1 = torch.nn.ReLU().to(device)
-        self.relu2 = torch.nn.ReLU().to(device)
 
         self.conv1 = torch.nn.Conv1d(2, 2, 1, 1).to(device)
         self.conv2 = torch.nn.Conv1d(2, 4, 3, 2).to(device)
@@ -166,12 +152,14 @@ class AudioEncoder(torch.nn.Module):
     def forward(self, x):
 
         out = self.conv1(x)
+        out = self.pool1(x)
         out = self.conv2(out)
+        out = self.relu1(out)
         out = self.conv3(out)
 
-        out = self.pool(out)
+        out = self.pool2(out)
 
-        return out.view(-1, 8, BANDWIDTH_LIMIT, BANDWIDTH_LIMIT)
+        return out
 
 
 
@@ -190,7 +178,7 @@ class AudioDecoder(torch.nn.Module):
 
     def forward(self, x):
 
-        out = x.view(-1, 8, BANDWIDTH_LIMIT * BANDWIDTH_LIMIT)
+        out = x
 
         out = self.deconv3(out)
         out = self.deconv4(out)
