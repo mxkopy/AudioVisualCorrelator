@@ -1,68 +1,89 @@
 import torch
 import torchvision
+import torchaudio
+import torchaudio.backend.sox_io_backend as sox_io
 import matplotlib.pyplot as plt
 import sys
+import os
 
 from torch.utils.data import Dataset
 
 # Contains the classes for the datasets that will be loaded in main.py
 
-torchvision.set_video_backend('video_reader')
+torchvision.set_video_backend('pyav')
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-class VideoDataset(Dataset):
+class AudioVisualDataset(Dataset):
 
 
-    def __init__(self, path, store_data=False):
+    # Initializes the dataset assuming path leads to .mp4 file
+    # store_data determines if frames are cached for later use
+    # streams determines whether to include audio or video
+        # 0 - include video
+        # 1 - include audio
+        # 2 - include video and audio (default)
 
-        self.curr_index = -1
+    def __init__(self, path, streams=2):
+
+        # To ensure playback and whatnot we reencode to just audio using the native ffmpeg
+
+        os.system(f'ffmpeg -n -i {path} -acodec pcm_s16le -ar 44100 {path}.wav'.format(path))
+
+        # Video loading is very simple
 
         self.video_reader = torchvision.io.VideoReader(path, 'video')
-        self.audio_reader = torchvision.io.VideoReader(path, 'audio')
+        self.visual_info = self.video_reader.get_metadata()['video']
 
-        self.info = self.video_reader.get_metadata()
-        self.len = int(self.info['video']['duration'][0] * self.info['video']['fps'][0])
+        print(self.visual_info)
 
-        self.data = []
-        self.store_data = store_data
+        # Since in general, video fps <<< audio fps, we want to sync the audio to the video. 
+        # So the audio initialization is more complicated.
 
-        self.transform = lambda x : (x.to(device) - 127) / 255
+        # Recall that samples/second * (second/frame) = samples/frame
+        self.audio_info = {
+            'sample_rate' : sox_io.info(path + '.wav').sample_rate, 
+            'num_frames' : sox_io.info(path + '.wav').num_frames, 
+            'num_channels' : sox_io.info(path + '.wav').num_channels }
+
+        self.a_v_ratio = int(self.audio_info['sample_rate'] / self.visual_info['fps'][0])
+        self.audio_reader = lambda index: sox_io.load(path + '.wav', index * self.a_v_ratio, self.a_v_ratio, normalize=True)
+
+        # Wrapper to make the iteration much more simple
+        if streams == 0:
+            self.streamer = lambda _ : next(self.video_reader)['data'].type(torch.float32)
+
+        if streams == 1:
+            self.streamer = lambda index: self.audio_reader(index)[0].type(torch.float32)
+
+        if streams == 2:
+            self.streamer = lambda index: self.audio_reader(index)[0].type(torch.float32), next(self.video_reader)['data'].type(torch.float32)
+
+
+
+    # The output elements will have shape
+    #(C1, H, W)   ,    (C2, L)   or    ((C1, H, W), (C2, F))
+
+    # C1 and C2 are video and audio channels (i.e. rgb, stereo)
+    # L is the length of the audio frame (i.e. num_audio_frames_read)
 
     def __getitem__(self, index):
 
-        self.data = []
+        self.video_reader.seek(index / self.visual_info['fps'][0])
 
-        video_data = next(self.video_reader)['data'].type(torch.float32)
-        audio_data = next(self.audio_reader)['data'].type(torch.float32)
-
-        self.curr_index += 1
-
-        while index > self.curr_index:
-
-            video_data = next(self.video_reader)['data']
-            audio_data = next(self.audio_reader)['data']
-            self.curr_index += 1
-
-            if self.store_data:
-
-                self.data.append((video_data, audio_data))
-
-        if index < self.curr_index:
-
-            if not self.store_data:
-
-                self.video_reader.seek(0)
-                self.audio_reader.seek(0)
-
-                self.curr_index = -1
-
-                return self.__getitem__(index)
-
-        return self.transform(video_data), audio_data.transpose(1, 0)
+        return self.streamer(index)
 
 
     def __len__(self):
 
-        return self.len
+        return int(self.visual_info['duration'][0] * self.visual_info['fps'][0])
+        
 
+# import os
+
+# path = os.getcwd() + '/video/0.mp4'
+
+# # video_reader = torchvision.io.VideoReader(path, 'video')
+
+vs = AudioVisualDataset(os.getcwd() + '/video/0.mp4', streams=1)
+print(vs[0].shape)
