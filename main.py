@@ -59,23 +59,12 @@ video_optimizer = Adam(list(video_encoder.parameters()) + list(video_decoder.par
 audio_optimizer = Adam(list(audio_encoder.parameters()) + list(audio_decoder.parameters()), lr)
 
 
-# Helper function that counts how many parameters a model has (pytorch does not natively support this)
-def num_params(model):
-
-    num = 0
-
-    for i in model.parameters():
-        num += 1
-    
-    return num
-
-
 # Trains the image autoencoder. 
 
 # clean_up_limit determines how frequently opencv objects are destroyed and the cache is cleared. 
 
 
-def video_train(clean_up_limit=100):
+def video_train(clean_up_limit=10000):
 
     for path in os.listdir(project_path + '/video'):
 
@@ -95,7 +84,7 @@ def video_train(clean_up_limit=100):
             for video in data:
 
                 video_optimizer.zero_grad()
-                video = video.to(device)
+                video = video.to(device) / 255
 
                 img_out = video_encoder(video)
                 img_out = video_decoder(img_out)
@@ -115,7 +104,7 @@ def video_train(clean_up_limit=100):
                 # torchvision returns an image normalized to [-0.5, 0.5], which is lucky, because opencv can open images in the range [-0.5, 0.5]
                 # opencv reads (H, W, C), so we have to transpose the (C, H, W) tensor.
 
-                display = img_out[0].cpu().detach().numpy().transpose(2, 1, 0) + 0.5
+                display = img_out[0].cpu().detach().numpy().transpose(2, 1, 0)
                 truth = video[0].cpu().detach().numpy().transpose(2, 1, 0)
 
                 print(running_loss)
@@ -126,17 +115,21 @@ def video_train(clean_up_limit=100):
 
                 cv.waitKey(1)
 
-            if clean_index > clean_up_limit:
-                cv.destroyAllWindows() 
-                torch.cuda.empty_cache()
+                print(clean_index)
 
-            clean_index += 1
+                if clean_index > clean_up_limit:
 
-            torch.save({
-                'encoder' : video_encoder.state_dict(),
-                'decoder' : video_decoder.state_dict(),
-                'optimizer' : video_optimizer.state_dict() }, project_path + '/models/video_model.pt')
+                    clean_index = 0
 
+                    torch.save({
+                        'encoder' : video_encoder.state_dict(),
+                        'decoder' : video_decoder.state_dict(),
+                        'optimizer' : video_optimizer.state_dict() }, project_path + '/models/video_model.pt')
+
+                    cv.destroyAllWindows() 
+                    torch.cuda.empty_cache()
+                
+                clean_index += 1
 
 def audio_training(clean_up_limit=100):
 
@@ -163,8 +156,8 @@ def audio_training(clean_up_limit=100):
                 
                 audio_optimizer.zero_grad()
 
-                out = audio_encoder(audio.to(device))
-                out = resize(audio_decoder(out))
+                aud_out = audio_encoder(audio.to(device))
+                aud_out = resize(audio_decoder(out))
 
                 curr_loss = loss(resize(out), audio)
 
@@ -176,9 +169,9 @@ def audio_training(clean_up_limit=100):
                 curr_loss.backward()
                 audio_optimizer.step()
 
-                if clean_index > clean_up_limit:
+                print(clean_index)
 
-                    print('issa YO')
+                if clean_index > clean_up_limit:
 
                     saved_data = torch.cat(saved_data, dim=1).view(2, -1).detach().clone()
 
@@ -195,8 +188,50 @@ def audio_training(clean_up_limit=100):
                 
                 clean_index += 1
 
-# video_train()
 
-audio_training()
+def load_frankenstein(audio_encoder_path, video_decoder_path):
+
+    audio_state_dict, video_state_dict = torch.load(audio_encoder_path), torchload(video_decoder_path)
+    audio_state_dict, video_state_dict = audio_encoder['encoder'], video_decoder['decoder']
+
+    audio_encoder.load_state_dict(audio_state_dict)
+    video_decoder.load_frankenstein(video_state_dict)
+
+
+def eval_frankenstein(path='0.mp4', frame_limit=500):
+
+    dataset = AudioVisualDataset(project_path + '/video/' + path, streams=1)
+
+    audio_encoder.eval()
+    video_decoder.eval()
+
+    audio_encoder.to(device)
+    video_decoder.to(device)
+
+    saved_data = []
+
+    for audio in dataset:
+
+        if curr_frame > frame_limit:
+
+            curr_frame = 0
+            torchvision.io.write_video('0-music.mp4', torch.cat(saved_data), fps=dataset.visual_info['fps'])
+            saved_data = []
+
+        aud_out = audio_encoder(audio.to(device))
+        aud_out = aud_out.view(-1, 8, BANDWIDTH_LIMIT, BANDWIDTH_LIMIT)
+
+        img_out = video_decoder(aud_out)
+
+        img_out = img_out[0].cpu().detach().numpy().transpose(2, 1, 0)
+        cv.imshow('vvoa', img_out)
+        cv.waitKey(1)
+    
+
+#video_train()
+
+# audio_training()
+
+video_train()
 
 #test()

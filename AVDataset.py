@@ -26,6 +26,9 @@ class AudioVisualDataset(Dataset):
 
     def __init__(self, path, streams=2):
 
+        # Having this helper index makes everything go incredibly fast
+        self.curr_index = -1
+
         # To ensure playback and whatnot we reencode to just audio using the native ffmpeg
 
         os.system(f'ffmpeg -n -i {path} -acodec pcm_s16le -ar 44100 {path}.wav'.format(path))
@@ -51,14 +54,13 @@ class AudioVisualDataset(Dataset):
 
         # Wrapper to make the iteration much more simple
         if streams == 0:
-            self.streamer = lambda _ : next(self.video_reader)['data'].type(torch.float32)
+            self.streamer = lambda _ : next(self.video_reader)['data'].type(torch.float32).to(device)
 
         if streams == 1:
-            self.streamer = lambda index: self.audio_reader(index)[0].type(torch.float32)
+            self.streamer = lambda index: self.audio_reader(index)[0].type(torch.float32).to(device)
 
         if streams == 2:
-            self.streamer = lambda index: self.audio_reader(index)[0].type(torch.float32), next(self.video_reader)['data'].type(torch.float32)
-
+            self.streamer = lambda index: self.audio_reader(index)[0].type(torch.float32).to(device), next(self.video_reader)['data'].type(torch.float32).to(device)
 
 
     # The output elements will have shape
@@ -69,9 +71,24 @@ class AudioVisualDataset(Dataset):
 
     def __getitem__(self, index):
 
-        self.video_reader.seek(index / self.visual_info['fps'][0])
+        self.curr_index += 1
+
+        if index > self.curr_index:
+
+            self.__getitem__(index)
+
+        elif index < self.curr_index:
+    
+            self.curr_index = 0
+            self.video_reader.seek(0.0)
+            self.__getitem__(index)
 
         return self.streamer(index)
+
+
+        # self.video_reader.seek(index / self.visual_info['fps'][0])
+
+        # return self.streamer(index)
 
 
     def __len__(self):
