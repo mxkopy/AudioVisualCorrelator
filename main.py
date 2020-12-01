@@ -151,8 +151,6 @@ def audio_training(clean_up_limit=100):
             running_loss = 0.0
 
             for audio in data:
-
-                print(dataset[0].shape[1])
                 
                 audio_optimizer.zero_grad()
 
@@ -164,7 +162,6 @@ def audio_training(clean_up_limit=100):
                 saved_data.append(resize(aud_out).view(2, -1))
                 
                 running_loss += curr_loss.item()
-                print(aud_out)
 
                 curr_loss.backward()
                 audio_optimizer.step()
@@ -220,7 +217,7 @@ def eval_frankenstein(path='0.mp4', frame_limit=500):
         if curr_frame > frame_limit:
 
             curr_frame = 0
-            torchvision.io.write_video('0-music.mp4', torch.cat(saved_data), fps=dataset.visual_info['fps'])
+            torchvision.io.write_video(project_path + '/generated_video/' + path, torch.cat(saved_data), fps=dataset.visual_info['fps'])
             saved_data = []
 
         aud_out = audio_encoder(audio.to(device))
@@ -232,6 +229,9 @@ def eval_frankenstein(path='0.mp4', frame_limit=500):
         cv.imshow('vvoa', img_out)
         cv.waitKey(1)
     
+
+load_frankenstein()
+eval_frankenstein()
 
 #video_train()
 
