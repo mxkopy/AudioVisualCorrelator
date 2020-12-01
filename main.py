@@ -190,8 +190,6 @@ def audio_training(clean_up_limit=100):
                         'decoder' : video_decoder.state_dict(),
                         'optimizer' : video_optimizer.state_dict() }, project_path + '/models/audio_model.pt')
 
-                    cv.destroyAllWindows() 
-                    torch.cuda.empty_cache()
                 
                 clean_index += 1
 
