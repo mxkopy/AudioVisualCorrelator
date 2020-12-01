@@ -38,8 +38,6 @@ class AudioVisualDataset(Dataset):
         self.video_reader = torchvision.io.VideoReader(path, 'video')
         self.visual_info = self.video_reader.get_metadata()['video']
 
-        print(self.visual_info)
-
         # Since in general, video fps <<< audio fps, we want to sync the audio to the video. 
         # So the audio initialization is more complicated.
 
@@ -73,15 +71,12 @@ class AudioVisualDataset(Dataset):
 
         self.curr_index += 1
 
-        if index == self.curr_index:
-            return self.streamer(index)
-
-        elif index < self.curr_index:
+        if index < self.curr_index:
     
-            self.curr_index = -1
-            self.video_reader.seek(0.0)
+            self.curr_index = index
+            self.video_reader.seek(index / self.visual_info['fps'][0])
 
-        return self.__getitem__(index)
+        return self.streamer(index)
 
 
         # self.video_reader.seek(index / self.visual_info['fps'][0])
