@@ -157,14 +157,14 @@ def audio_training(clean_up_limit=100):
                 audio_optimizer.zero_grad()
 
                 aud_out = audio_encoder(audio.to(device))
-                aud_out = resize(audio_decoder(out))
+                aud_out = resize(audio_decoder(aud_out))
 
-                curr_loss = loss(resize(out), audio)
+                curr_loss = loss(resize(aud_out), audio)
 
-                saved_data.append(resize(out).view(2, -1))
+                saved_data.append(resize(aud_out).view(2, -1))
                 
                 running_loss += curr_loss.item()
-                print(out)
+                print(aud_out)
 
                 curr_loss.backward()
                 audio_optimizer.step()
@@ -181,10 +181,17 @@ def audio_training(clean_up_limit=100):
                         sample_rate=int(dataset.audio_info['sample_rate']),
                         channels_first=True)
                     
-                    torch.cuda.empty_cache()
                     saved_data = []
                     clean_index = 0
                     name += 1
+
+                    torch.save({
+                        'encoder' : video_encoder.state_dict(),
+                        'decoder' : video_decoder.state_dict(),
+                        'optimizer' : video_optimizer.state_dict() }, project_path + '/models/audio_model.pt')
+
+                    cv.destroyAllWindows() 
+                    torch.cuda.empty_cache()
                 
                 clean_index += 1
 
@@ -230,8 +237,8 @@ def eval_frankenstein(path='0.mp4', frame_limit=500):
 
 #video_train()
 
-# audio_training()
+audio_training()
 
-video_train()
+# video_train()
 
 #test()

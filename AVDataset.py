@@ -73,17 +73,15 @@ class AudioVisualDataset(Dataset):
 
         self.curr_index += 1
 
-        if index > self.curr_index:
-
-            self.__getitem__(index)
+        if index == self.curr_index:
+            return self.streamer(index)
 
         elif index < self.curr_index:
     
-            self.curr_index = 0
+            self.curr_index = -1
             self.video_reader.seek(0.0)
-            self.__getitem__(index)
 
-        return self.streamer(index)
+        return self.__getitem__(index)
 
 
         # self.video_reader.seek(index / self.visual_info['fps'][0])
@@ -95,12 +93,3 @@ class AudioVisualDataset(Dataset):
 
         return int(self.visual_info['duration'][0] * self.visual_info['fps'][0])
         
-
-# import os
-
-# path = os.getcwd() + '/video/0.mp4'
-
-# # video_reader = torchvision.io.VideoReader(path, 'video')
-
-vs = AudioVisualDataset(os.getcwd() + '/video/0.mp4', streams=1)
-print(vs[0].shape)
