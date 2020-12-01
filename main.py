@@ -183,18 +183,18 @@ def audio_training(clean_up_limit=100):
                     name += 1
 
                     torch.save({
-                        'encoder' : video_encoder.state_dict(),
-                        'decoder' : video_decoder.state_dict(),
-                        'optimizer' : video_optimizer.state_dict() }, project_path + '/models/audio_model.pt')
+                        'encoder' : audio_encoder.state_dict(),
+                        'decoder' : audio_decoder.state_dict(),
+                        'optimizer' : audio_optimizer.state_dict() }, project_path + '/models/audio_model.pt')
 
                 
                 clean_index += 1
 
 
-def load_frankenstein(audio_encoder_path, video_decoder_path):
+def load_frankenstein(audio_encoder_path=project_path + '/models/audio_model.pt', video_decoder_path=project_path + '/models/video_model.pt'):
 
-    audio_state_dict, video_state_dict = torch.load(audio_encoder_path), torchload(video_decoder_path)
-    audio_state_dict, video_state_dict = audio_encoder['encoder'], video_decoder['decoder']
+    audio_state_dict, video_state_dict = torch.load(audio_encoder_path), torch.load(video_decoder_path)
+    audio_state_dict, video_state_dict = audio_state_dict['encoder'], video_state_dict['decoder']
 
     audio_encoder.load_state_dict(audio_state_dict)
     video_decoder.load_frankenstein(video_state_dict)
