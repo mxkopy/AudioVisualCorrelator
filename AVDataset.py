@@ -10,21 +10,21 @@ from torch.utils.data import Dataset
 
 # Contains the classes for the datasets that will be loaded in main.py
 
-torchvision.set_video_backend('pyav')
-
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# torchvision.set_video_backend('pyav')
 
 class AudioVisualDataset(Dataset):
 
 
     # Initializes the dataset assuming path leads to .mp4 file
     # store_data determines if frames are cached for later use
-    # streams determines whether to include audio or video
-        # 0 - include video
-        # 1 - include audio
-        # 2 - include video and audio (default)
+    # streams determines the truth, input configuration
 
-    def __init__(self, path, streams=2):
+        # if 0, (truth, input) -> (audio, audio)
+        # if 1, (truth, input) -> (video, video)
+        # if 2, (truth, input) -> (audio, video)
+        # if 3, (truth, input) -> (video, audio)
+
+    def __init__(self, path, streams, device):
 
         # Having this helper index makes everything go incredibly fast
         self.curr_index = -1
@@ -51,14 +51,18 @@ class AudioVisualDataset(Dataset):
         self.audio_reader = lambda index: sox_io.load(path + '.wav', index * self.a_v_ratio, self.a_v_ratio, normalize=True)
 
         # Wrapper to make the iteration much more simple
+
         if streams == 0:
-            self.streamer = lambda _ : next(self.video_reader)['data'].type(torch.float32).to(device)
+            self.streamer = lambda index: 2 * [self.audio_reader(index)[0].type(torch.float32).to(device)]
 
         if streams == 1:
-            self.streamer = lambda index: self.audio_reader(index)[0].type(torch.float32).to(device)
+            self.streamer = lambda _ : 2 * [next(self.video_reader)['data'].type(torch.float32).to(device)] 
 
         if streams == 2:
-            self.streamer = lambda index: self.audio_reader(index)[0].type(torch.float32).to(device), next(self.video_reader)['data'].type(torch.float32).to(device)
+            self.streamer = lambda index: (self.audio_reader(index)[0].type(torch.float32).to(device), next(self.video_reader)['data'].type(torch.float32).to(device))
+
+        if streams == 3:
+            self.streamer = lambda index: (next(self.video_reader)['data'].type(torch.float32).to(device), self.audio_reader(index)[0].type(torch.float32).to(device))
 
 
     # The output elements will have shape

@@ -13,8 +13,6 @@ import os
 # The network, given the sound, creates a test output in that space. Training is done
 # over the MSE loss of test vectors and truth vectors. 
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
 BANDWIDTH_LIMIT = 64
 
 KERNELS = [
@@ -50,7 +48,7 @@ LAYERS_DEC = [channels + kernels for channels, kernels in zip(CHANNELS_DEC, KERN
 class ImageEncoder(torch.nn.Module):
 
 
-    def __init__(self, bandwidth_limit=BANDWIDTH_LIMIT):
+    def __init__(self, device=torch.device('cpu')):
 
         super(ImageEncoder, self).__init__()
 
@@ -58,7 +56,7 @@ class ImageEncoder(torch.nn.Module):
         self.relu2 = torch.nn.ReLU().to(device)
 
         self.pool1 = torch.nn.AdaptiveAvgPool2d((512, 512)).to(device)
-        self.pool2 = torch.nn.AdaptiveAvgPool2d((bandwidth_limit, bandwidth_limit)).to(device)
+        self.pool2 = torch.nn.AdaptiveAvgPool2d((BANDWIDTH_LIMIT, BANDWIDTH_LIMIT)).to(device)
 
         self.conv1 = torch.nn.Conv2d(*LAYERS_ENC[0]).to(device)
         self.conv2 = torch.nn.Conv2d(*LAYERS_ENC[1]).to(device)
@@ -95,11 +93,11 @@ class ImageEncoder(torch.nn.Module):
 
 class ImageDecoder(torch.nn.Module):
 
-    def __init__(self):
+    def __init__(self, device=torch.device('cpu'), image_size=(512, 512)):
 
         super(ImageDecoder, self).__init__()
 
-        self.pool = torch.nn.AdaptiveAvgPool2d((512, 512)).to(device)
+        self.pool = torch.nn.AdaptiveAvgPool2d(image_size).to(device)
 
         self.deconv1 = torch.nn.ConvTranspose2d(*LAYERS_DEC[6]).to(device)
         self.deconv2 = torch.nn.ConvTranspose2d(*LAYERS_DEC[5]).to(device)
@@ -114,7 +112,7 @@ class ImageDecoder(torch.nn.Module):
 
     def forward(self, x):
 
-        out = x
+        out = x.view(-1, 8, BANDWIDTH_LIMIT, BANDWIDTH_LIMIT)
 
         # out = self.deconv1(out)
         # out = self.deconv2(out)
@@ -133,12 +131,12 @@ class ImageDecoder(torch.nn.Module):
 class AudioEncoder(torch.nn.Module):
 
     # bandwidth_limit determines the size of the last pooled connection. It should be the same size as the video encoder's. 
-    def __init__(self, bandwidth_limit=BANDWIDTH_LIMIT):
+    def __init__(self, device=torch.device('cpu')):
         
         super(AudioEncoder, self).__init__()
         
         self.pool1 = torch.nn.AdaptiveAvgPool1d(10000)
-        self.pool2 = torch.nn.AdaptiveAvgPool1d(bandwidth_limit * bandwidth_limit)
+        self.pool2 = torch.nn.AdaptiveAvgPool1d(BANDWIDTH_LIMIT * BANDWIDTH_LIMIT)
 
         self.relu1 = torch.nn.ReLU().to(device)
 
@@ -151,8 +149,10 @@ class AudioEncoder(torch.nn.Module):
 
     def forward(self, x):
 
-        out = self.conv1(x)
-        out = self.pool1(x)
+        out = x
+
+        out = self.conv1(out)
+        out = self.pool1(out)
         out = self.conv2(out)
         out = self.relu1(out)
         out = self.conv3(out)
@@ -166,7 +166,7 @@ class AudioEncoder(torch.nn.Module):
 class AudioDecoder(torch.nn.Module):
 
     
-    def __init__(self):
+    def __init__(self, device=torch.device('cpu')):
 
         super(AudioDecoder, self).__init__()
 
@@ -178,7 +178,7 @@ class AudioDecoder(torch.nn.Module):
 
     def forward(self, x):
 
-        out = x
+        out = x.view(-1, 8, BANDWIDTH_LIMIT * BANDWIDTH_LIMIT)
 
         out = self.deconv3(out)
         out = self.deconv4(out)
