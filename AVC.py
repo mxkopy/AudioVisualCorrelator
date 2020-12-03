@@ -93,7 +93,7 @@ class ImageEncoder(torch.nn.Module):
 
 class ImageDecoder(torch.nn.Module):
 
-    def __init__(self, device=torch.device('cpu'), image_size=(512, 512)):
+    def __init__(self, image_size, device=torch.device('cpu')):
 
         super(ImageDecoder, self).__init__()
 
@@ -166,7 +166,7 @@ class AudioEncoder(torch.nn.Module):
 class AudioDecoder(torch.nn.Module):
 
     
-    def __init__(self, device=torch.device('cpu')):
+    def __init__(self, frame_size, device=torch.device('cpu')):
 
         super(AudioDecoder, self).__init__()
 

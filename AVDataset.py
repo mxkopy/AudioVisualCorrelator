@@ -14,6 +14,32 @@ from torch.utils.data import Dataset
 
 class AudioVisualDataset(Dataset):
 
+    # I really hope there is a simpler way to do this
+
+    def audio_streamer(self, index, audio_reader, video_reader, resize):
+
+        data = audio_reader(index)[0].type(torch.float32).to(self.device)
+
+        return (data, data)
+
+    def video_streamer(self, index, audio_reader, video_reader, resize):
+
+        data = resize(next(self.video_reader)['data'].type(torch.float32).to(self.device)) / 255
+
+        return (data, data)
+
+    def audio_video_streamer(self, index, audio_reader, video_reader, resize):
+        
+        audio, video = audio_reader(index)[0].type(torch.float32).to(self.device), resize(next(self.video_reader)['data'].type(torch.float32).to(self.device)) / 255
+
+        return audio, video
+
+    def video_audio_streamer(self, index, audio_reader, video_reader, resize):
+
+        audio, video = audio_reader(index)[0].type(torch.float32).to(self.device), resize(next(self.video_reader)['data'].type(torch.float32).to(self.device)) / 255
+
+        return (video, audio)
+
 
     # Initializes the dataset assuming path leads to .mp4 file
     # store_data determines if frames are cached for later use
@@ -24,7 +50,9 @@ class AudioVisualDataset(Dataset):
         # if 2, (truth, input) -> (audio, video)
         # if 3, (truth, input) -> (video, audio)
 
-    def __init__(self, path, streams, device):
+    def __init__(self, path, streams, device, img_size):
+
+        self.device = device
 
         # Having this helper index makes everything go incredibly fast
         self.curr_index = -1
@@ -51,19 +79,26 @@ class AudioVisualDataset(Dataset):
         self.audio_reader = lambda index: sox_io.load(path + '.wav', index * self.a_v_ratio, self.a_v_ratio, normalize=True)
 
         # Wrapper to make the iteration much more simple
+        # TODO: Put this in a function
+
+        self.resize = torchvision.transforms.Resize(img_size)
 
         if streams == 0:
-            self.streamer = lambda index: 2 * [self.audio_reader(index)[0].type(torch.float32).to(device)]
+            self.streams = self.audio_streamer
 
         if streams == 1:
-            self.streamer = lambda _ : 2 * [next(self.video_reader)['data'].type(torch.float32).to(device)] 
+            self.streams = self.video_streamer
 
         if streams == 2:
-            self.streamer = lambda index: (self.audio_reader(index)[0].type(torch.float32).to(device), next(self.video_reader)['data'].type(torch.float32).to(device))
+            self.streams = self.audio_video_streamer
 
         if streams == 3:
-            self.streamer = lambda index: (next(self.video_reader)['data'].type(torch.float32).to(device), self.audio_reader(index)[0].type(torch.float32).to(device))
+            self.streams = self.video_audio_streamer
 
+
+    def streamer(self, index):
+
+        return self.streams(index, self.audio_reader, self.video_reader, self.resize)
 
     # The output elements will have shape
     #(C1, H, W)   ,    (C2, L)   or    ((C1, H, W), (C2, F))
