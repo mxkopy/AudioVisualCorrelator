@@ -26,15 +26,14 @@ args.add_argument("--device", help="Determines if the network will run on the GP
 args.add_argument("--lr", help="Sets learning rate. Defaults to 1e-4.", default=1e-4, type=float)
 args.add_argument("--batch-size", help="Sets batch size. Defaults to 4.", default=4, type=int)
 args.add_argument("--epochs", help="Sets number of epochs. Defaults to 7.", default=7, type=int)
-args.add_argument("--clean", help="Number of video/audio frames run before windows are recreated and cache is emptied. Defaults to 100.", default=100, type=int)
+args.add_argument("--clean", help="Number of video/audio frames run before windows are recreated and cache is emptied. Defaults to 100.", default=500, type=int)
 
 #TODO: Add audio output stream
-args.add_argument("--display-truth", help="If set, will create an opencv window with truth data.", action='store_true')
-args.add_argument("--display-out", help="If set, will create an opencv window with network output data.", action='store_true')
+args.add_argument("--display-truth", help="If set, will create an opencv window with truth data.", action='store_true', default=True)
+args.add_argument("--display-out", help="If set, will create an opencv window with network output data.", action='store_true', default=True)
 args.add_argument("--image-size", help="Define the height and width of the output image in pixels. Defaults to 512 x 512.", default=(512, 512), nargs="+")
 
-args.add_argument("--train", help="Sets the network to train on each file in path. You must have this or --eval for the network to do anything.", action='store_true')
-args.add_argument("--eval", help="Sets the network to evaluate each file in path. You must have this or --train for the network to do anything.", action='store_true')
+args.add_argument("--eval", help="Sets the network to evaluate each file in path.", action='store_true')
 
 args = args.parse_args()
 
@@ -70,17 +69,15 @@ def display_video(_args, out, truth):
 # Saves a model as a .pt file in the /models directory. Only saves the most recent one.
 def save_model(_args):
 
+    name = args.encoder + "_" + args.decoder + ".pt"
+
     torch.save({
         'encoder' : _args['encoder'].state_dict(),
         'decoder' : _args['decoder'].state_dict(),
-        'optimizer' : _args['optimizer'].state_dict() }, os.getcwd() + '/models/{_args[\'encoder\'] + _args[\'decoder\']}_model.pt')
-
-def eval(_args, i):
-
-    encoder_out = _args['encoder'](i)
-    decoder_out = _args['decoder'](encoder_out)
-
-    return decoder_out
+        'optimizer' : _args['optimizer'].state_dict() }, 
+        os.getcwd() + "/models/" + name
+    )
+    
 
 # Trainer callback used in the data loop
 # Inputs are _args, truth, an input tensor, and the cleaning index (optional)
@@ -88,7 +85,8 @@ def train(_args, i, t, c=-1):
 
     _args['optimizer'].zero_grad()    
 
-    out = eval(_args, i)
+    encoder_out = _args['encoder'](i)
+    out = _args['decoder'](encoder_out)
 
     _args['current-loss'] = _args['loss'][args.decoder](out, t)
 
@@ -101,6 +99,16 @@ def train(_args, i, t, c=-1):
     print(f'current loss:  {curr}     total loss: {total}     iter {c}'.format(curr, total, c))
         
     return out
+
+
+# Evaluates a model. 
+# If the decoder is video, the output will be displayed
+# Otherwise it will be saved in generated_audio
+
+def eval(_args, i):
+
+    return _args['decoder'](_args['encoder'](i))
+
 
 # Converts the dataset into the DataLoader type, and loops over it
 # Passes in _args and batched data to the callback
@@ -119,7 +127,15 @@ def loop(_args, callback):
 # Parallelized versions of above
 def parallel_display(_args, tq, oq):
 
+    clean_index = 0
+
     while True:
+
+        if clean_index > args.clean:
+
+            cv.destroyAllWindows() 
+            torch.cuda.empty_cache()
+            clean_index = 0
 
         if args.display_truth:
 
@@ -136,10 +152,12 @@ def parallel_display(_args, tq, oq):
             cv.imshow('out', out.transpose(2, 1, 0))
 
             cv.waitKey(1)
+        
+        clean_index += 1
 
 
 
-def parallel_train(_args, i, t, oq, c=-1):
+def parallel_train(_args, i, t, oq, save=-1):
 
     _args['optimizer'].zero_grad()    
 
@@ -157,13 +175,19 @@ def parallel_train(_args, i, t, oq, c=-1):
     _args['running-loss'] += _args['current-loss'].item()
     total, curr = _args['running-loss'], _args['current-loss'].item()
 
-    print(f'current loss:  {curr}     total loss: {total}     iter {c}'.format(curr, total, c))
+    print(f'current loss:  {curr}     total loss: {total}     iter {save}'.format(curr, total, save))
         
+
+def parallel_eval(_args, i, t, oq):
+
+    oq.put(_args['decoder'](_args['encoder'](i)))
+
 
 def parallel_loop(_args, callback):
 
     tq = mp.Queue()
     oq = mp.Queue()
+    save_index = 0
 
     # out = mp.Process(target=parallel_train, args=(_args, dq, oq))
     display = mp.Process(target=parallel_display, args=(_args, tq, oq))
@@ -176,9 +200,15 @@ def parallel_loop(_args, callback):
             for truth in t:
                 tq.put_nowait(truth)
 
-            callback(_args, i, t, oq)
+            callback(_args, i, t, oq, save_index)
 
-        display.join()
+            if save_index > args.clean:
+
+                save_index = 0
+                save_model(_args)
+            display.join()
+
+            save_index += 1
 
 
 
@@ -211,12 +241,6 @@ def main():
 
         "streams" : 0
     }
-
-    # Network wont run if you don't tell it to
-    if not args.train or args.eval:
-
-        print("You must specify --train or --eval.")
-        return
 
 
     # We need to load data to do some init things
@@ -251,7 +275,7 @@ def main():
 
     
     # Train/eval loop
-    if args.train:
+    if not args.eval:
 
         _args['encoder'].train()
         _args['decoder'].train()
@@ -260,29 +284,42 @@ def main():
         for name in os.listdir(args.path):
             
             load_data(_args, args.path + '/' + name)
-        
-            # Resize operation is different depending on the dataset
-
-            # resize = [
-            #     torch.nn.AdaptiveAvgPool1d(_args['info'][2]),
-            #     torchvision.transforms.Resize((args.image_size[0], args.image_size[1]))
-            # ]
 
             _args['loss'] = torch.nn.MSELoss()
 
             parallel_loop(_args, parallel_train)
 
 
-    if args.eval:
+    else:
+
+        path = os.getcwd() + "/models/"
+
+        encoders = {
+            'video' : torch.load(path + "/video_video.pt")['encoder'],
+            'audio' : torch.load(path + "/audio_audio.pt")['encoder']
+        }
+
+        decoders = {
+            'video' : torch.load(path + "/video_video.pt")['decoder'],
+            'audio' : torch.load(path + "/audio_audio.pt")['decoder']
+        }
+
+        encoders = {
+            'video' : ImageEncoder().load_state_dict(encoders['video']),
+            'audio' : AudioEncoder().load_state_dict(encoders['audio'])
+        }
+
+        decoders = {
+            'video' : ImageDecoder(args.image_size).load_state_dict(encoders['video']),
+            'audio' : AudioDecoder(_args['info'][2]).load_state_dict(encoders['audio'])
+        }
+
+        _args['encoder'], _args['decoder'] = encoders[args.encoder], decoders[args.decoder]
 
         _args['encoder'].eval()
         _args['decoder'].eval()
 
-        loop(_args, eval)
+        parallel_loop(_args, parallel_eval)
     
-
-    _args['encoder'].to(_args['device'])
-    _args['decoder'].to(_args['device'])
-
 
 main()

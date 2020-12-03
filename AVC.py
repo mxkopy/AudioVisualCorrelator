@@ -170,6 +170,8 @@ class AudioDecoder(torch.nn.Module):
 
         super(AudioDecoder, self).__init__()
 
+        self.pool = torch.nn.AdaptiveAvgPool1d(frame_size)
+
         self.deconv1 = torch.nn.ConvTranspose1d(16, 12, 3, 1).to(device)
         self.deconv2 = torch.nn.ConvTranspose1d(12, 8, 3, 1).to(device)
         self.deconv3 = torch.nn.ConvTranspose1d(8, 4, 3, 1).to(device)
@@ -183,6 +185,8 @@ class AudioDecoder(torch.nn.Module):
         out = self.deconv3(out)
         out = self.deconv4(out)
         out = self.deconv5(out)
+
+        out = self.pool(out)
 
         return out 
 
