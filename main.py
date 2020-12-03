@@ -2,8 +2,11 @@ import torch
 import torchvision
 import numpy as np
 import torchaudio
+import sys
 import cv2 as cv 
 import os
+import argparse
+import multiprocessing as mp
 
 from torch.utils.data.dataloader import DataLoader
 from torch.optim import Adam
@@ -12,231 +15,311 @@ from PIL import Image
 from AVDataset import *
 from AVC import *
 
+args = argparse.ArgumentParser()
 
-# Potential user input
-lr = 1e-4
-batch_size = 1
-epochs = 1
-torchaudio.set_audio_backend('sox_io')
+args.add_argument("input", help="Determines if audio or video is encoded. Takes values 'video' or 'audio'.")
+args.add_argument("output", help="Determines if audio or video is decoded. Takes values 'video' or 'audio'.")
 
-# Initialization
+args.add_argument("--path", help="Trains/evals on each file in this folder, in alphabetical order. Defaults to pwd + /video/", default=os.getcwd() + "/video/", type=str)
+args.add_argument("--device", help="Determines if the network will run on the GPU. Can be set to 'cuda', or 'cpu', defaults to 'cpu'.", default='cpu', type=str)
 
-project_path = os.getcwd()
-model_path = project_path + '/models'
+args.add_argument("--lr", help="Sets learning rate. Defaults to 1e-4.", default=1e-4, type=float)
+args.add_argument("--batch-size", help="Sets batch size. Defaults to 4.", default=4, type=int)
+args.add_argument("--epochs", help="Sets number of epochs. Defaults to 7.", default=7, type=int)
+args.add_argument("--clean", help="Number of video/audio frames run before windows are recreated and cache is emptied. Defaults to 100.", default=500, type=int)
 
-# Dataset is an iterator that returns a tuple that contains tensors
+#TODO: Add audio output stream
+args.add_argument("--display-truth", help="If set, will create an opencv window with truth data.", action='store_true', default=True)
+args.add_argument("--display-out", help="If set, will create an opencv window with network output data.", action='store_true', default=True)
+args.add_argument("--image-size", help="Define the height and width of the output image in pixels. Defaults to 512 x 512.", default=(512, 512), nargs="+")
 
-# (C, H, W) where C, H, W are rgb channels, heigh, width
-# (C, L) where C is L/R channels, and L is the length of an audio frame
+args.add_argument("--eval", help="Sets the network to evaluate each file in path.", action='store_true')
 
-# It can return video, audio, or (video, audio)
+args = args.parse_args()
 
-dataset = AudioVisualDataset(project_path + '/video/0.mp4', streams=2)
 
-# Data is an iterator that returns, where B is number of batches, tensors of shape
-# (B, C, H, W) 
-# (B, C, L)
-# (B, (C, H, W), (C, L))
+# def _display_video(name, frame):
 
-data = DataLoader(dataset)
+#     cv.imshow(name, frame)
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+def display_video(_args, out, truth):
+    
+    if args.display_out:
 
-video_encoder = ImageEncoder().to(device)
-video_decoder = ImageDecoder().to(device)
-audio_encoder = AudioEncoder().to(device)
-audio_decoder = AudioDecoder().to(device)
+        cv.imshow('out', out.cpu().detach().numpy().transpose(2, 1, 0))
+        
+        cv.waitKey(0)
 
-video_encoder.train()
-video_decoder.train()
-audio_encoder.train()
-audio_decoder.train()
+    if args.display_out:
 
-to_pil = torchvision.transforms.ToPILImage()
+        cv.imshow('truth', truth.cpu().detach().numpy().transpose(2, 1, 0))
 
-loss = torch.nn.MSELoss()
-video_optimizer = Adam(list(video_encoder.parameters()) + list(video_decoder.parameters()), lr)
-audio_optimizer = Adam(list(audio_encoder.parameters()) + list(audio_decoder.parameters()), lr)
+        cv.waitKey(0)
 
 
-# Trains the image autoencoder. 
+# def write_audio(args, name, data, path=os.getcwd() + '/generated_audio/'):
 
-# clean_up_limit determines how frequently opencv objects are destroyed and the cache is cleared. 
+#     torchaudio.save(
+#         path + str(name) + '.wav', 
+#         data,
+#         sample_rate=int(dataset.audio_info['sample_rate']),
+#         channels_first=True)
 
 
-def video_train(clean_up_limit=10000):
+# Saves a model as a .pt file in the /models directory. Only saves the most recent one.
+def save_model(_args):
 
-    for path in os.listdir(project_path + '/video'):
+    name = args.encoder + "_" + args.decoder + ".pt"
 
-        dataset = AudioVisualDataset(project_path + '/video/' + path, streams=0)
-        data = DataLoader(dataset)
-
-        resize = torchvision.transforms.Resize((512, 512))
-
-        for _ in range(epochs):
-
-            running_loss = 0.0
-            
-            clean_index = 0
-
-            # Standard training loop
-
-            for video in data:
-
-                video_optimizer.zero_grad()
-                video = video.to(device) / 255
-
-                img_out = video_encoder(video)
-                img_out = video_decoder(img_out)
-
-                video = resize(video)
-
-                curr_loss = loss(img_out, video)
-                running_loss += curr_loss.item()
-
-                curr_loss.backward()
-                video_optimizer.step()
-
-                # Info display
-
-                # TODO: Create a queue to iterate through batches while they are shown
-                
-                # torchvision returns an image normalized to [-0.5, 0.5], which is lucky, because opencv can open images in the range [-0.5, 0.5]
-                # opencv reads (H, W, C), so we have to transpose the (C, H, W) tensor.
-
-                display = img_out[0].cpu().detach().numpy().transpose(2, 1, 0)
-                truth = video[0].cpu().detach().numpy().transpose(2, 1, 0)
-
-                print(running_loss)
-                print(curr_loss.detach())
-
-                cv.imshow('woa', display)
-                cv.imshow('truth', truth)
-
-                cv.waitKey(1)
-
-                print(clean_index)
-
-                if clean_index > clean_up_limit:
-
-                    clean_index = 0
-
-                    torch.save({
-                        'encoder' : video_encoder.state_dict(),
-                        'decoder' : video_decoder.state_dict(),
-                        'optimizer' : video_optimizer.state_dict() }, project_path + '/models/video_model.pt')
-
-                    cv.destroyAllWindows() 
-                    torch.cuda.empty_cache()
-                
-                clean_index += 1
-
-def audio_training(clean_up_limit=100):
-
-    # helper variable that determines the name of the saved file
-
-    name = 0
-
-    for path in os.listdir(project_path + '/video'):
-
-        dataset = AudioVisualDataset(project_path + '/video/' + path, streams=1)
-        data = DataLoader(dataset, batch_size=batch_size)
-
-        resize = torch.nn.AdaptiveAvgPool1d(dataset[0].shape[1])
-
-        for _ in range(epochs):
-
-            saved_data = []
-            clean_index = 0
-            running_loss = 0.0
-
-            for audio in data:
-                
-                audio_optimizer.zero_grad()
-
-                aud_out = audio_encoder(audio.to(device))
-                aud_out = resize(audio_decoder(aud_out))
-
-                curr_loss = loss(resize(aud_out), audio)
-
-                saved_data.append(resize(aud_out).view(2, -1))
-                
-                running_loss += curr_loss.item()
-
-                curr_loss.backward()
-                audio_optimizer.step()
-
-                print(clean_index)
-
-                if clean_index > clean_up_limit:
-
-                    saved_data = torch.cat(saved_data, dim=1).view(2, -1).detach().clone()
-
-                    torchaudio.save(
-                        project_path + '/generated_audio/' + str(name) + '.wav', 
-                        saved_data,
-                        sample_rate=int(dataset.audio_info['sample_rate']),
-                        channels_first=True)
-                    
-                    saved_data = []
-                    clean_index = 0
-                    name += 1
-
-                    torch.save({
-                        'encoder' : audio_encoder.state_dict(),
-                        'decoder' : audio_decoder.state_dict(),
-                        'optimizer' : audio_optimizer.state_dict() }, project_path + '/models/audio_model.pt')
-
-                
-                clean_index += 1
-
-
-def load_frankenstein(audio_encoder_path=project_path + '/models/audio_model.pt', video_decoder_path=project_path + '/models/video_model.pt'):
-
-    audio_state_dict, video_state_dict = torch.load(audio_encoder_path), torch.load(video_decoder_path)
-    audio_state_dict, video_state_dict = audio_state_dict['encoder'], video_state_dict['decoder']
-
-    audio_encoder.load_state_dict(audio_state_dict)
-    video_decoder.load_frankenstein(video_state_dict)
-
-
-def eval_frankenstein(path='0.mp4', frame_limit=500):
-
-    dataset = AudioVisualDataset(project_path + '/video/' + path, streams=1)
-
-    audio_encoder.eval()
-    video_decoder.eval()
-
-    audio_encoder.to(device)
-    video_decoder.to(device)
-
-    saved_data = []
-
-    for audio in dataset:
-
-        if curr_frame > frame_limit:
-
-            curr_frame = 0
-            torchvision.io.write_video(project_path + '/generated_video/' + path, torch.cat(saved_data), fps=dataset.visual_info['fps'])
-            saved_data = []
-
-        aud_out = audio_encoder(audio.to(device))
-        aud_out = aud_out.view(-1, 8, BANDWIDTH_LIMIT, BANDWIDTH_LIMIT)
-
-        img_out = video_decoder(aud_out)
-
-        img_out = img_out[0].cpu().detach().numpy().transpose(2, 1, 0)
-        cv.imshow('vvoa', img_out)
-        cv.waitKey(1)
+    torch.save({
+        'encoder' : _args['encoder'].state_dict(),
+        'decoder' : _args['decoder'].state_dict(),
+        'optimizer' : _args['optimizer'].state_dict() }, 
+        os.getcwd() + "/models/" + name
+    )
     
 
-load_frankenstein()
-eval_frankenstein()
+# Trainer callback used in the data loop
+# Inputs are _args, truth, an input tensor, and the cleaning index (optional)
+def train(_args, i, t, c=-1):
 
-#video_train()
+    _args['optimizer'].zero_grad()    
 
-audio_training()
+    encoder_out = _args['encoder'](i)
+    out = _args['decoder'](encoder_out)
 
-# video_train()
+    _args['current-loss'] = _args['loss'][args.decoder](out, t)
 
-#test()
+    _args['current-loss'].backward()
+    _args['optimizer'].step()
+
+    _args['running-loss'] += _args['current-loss'].item()
+    total, curr = _args['running-loss'], _args['current-loss'].item()
+
+    print(f'current loss:  {curr}     total loss: {total}     iter {c}'.format(curr, total, c))
+        
+    return out
+
+
+# Evaluates a model. 
+# If the decoder is video, the output will be displayed
+# Otherwise it will be saved in generated_audio
+
+def eval(_args, i):
+
+    return _args['decoder'](_args['encoder'](i))
+
+
+# Converts the dataset into the DataLoader type, and loops over it
+# Passes in _args and batched data to the callback
+
+# The callback evaluates or trains a network.
+
+def loop(_args, callback):
+
+    for _ in range(args.epochs):
+
+        for i, t in _args['data']:
+            out = callback(_args, i, t)
+            display_video(_args, out[0], t[0])
+
+
+# Parallelized versions of above
+def parallel_display(_args, tq, oq):
+
+    clean_index = 0
+
+    while True:
+
+        if clean_index > args.clean:
+
+            cv.destroyAllWindows() 
+            torch.cuda.empty_cache()
+            clean_index = 0
+
+        if args.display_truth:
+
+            truth = tq.get().cpu().detach().numpy()#
+
+            cv.imshow('truth', truth.transpose(2, 1, 0))
+
+            cv.waitKey(1)
+
+        if args.display_out:
+
+            out = oq.get().cpu().detach().numpy()
+
+            cv.imshow('out', out.transpose(2, 1, 0))
+
+            cv.waitKey(1)
+        
+        clean_index += 1
+
+
+
+def parallel_train(_args, i, t, oq, save=-1):
+
+    _args['optimizer'].zero_grad()    
+
+    encoder_out = _args['encoder'](i)
+    out = _args['decoder'](encoder_out)
+
+    for img in out:
+        oq.put_nowait(img.detach())
+
+    _args['current-loss'] = _args['loss'](out, t)
+
+    _args['current-loss'].backward()
+    _args['optimizer'].step()
+
+    _args['running-loss'] += _args['current-loss'].item()
+    total, curr = _args['running-loss'], _args['current-loss'].item()
+
+    print(f'current loss:  {curr}     total loss: {total}     iter {save}'.format(curr, total, save))
+        
+
+def parallel_eval(_args, i, t, oq):
+
+    oq.put(_args['decoder'](_args['encoder'](i)))
+
+
+def parallel_loop(_args, callback):
+
+    tq = mp.Queue()
+    oq = mp.Queue()
+    save_index = 0
+
+    # out = mp.Process(target=parallel_train, args=(_args, dq, oq))
+    display = mp.Process(target=parallel_display, args=(_args, tq, oq))
+    display.start()
+
+    for _ in range(args.epochs):
+
+        for i, t in _args['data']:
+
+            for truth in t:
+                tq.put_nowait(truth)
+
+            callback(_args, i, t, oq, save_index)
+
+            if save_index > args.clean:
+
+                save_index = 0
+                save_model(_args)
+            display.join()
+
+            save_index += 1
+
+
+
+# Loads the ith data file in directory path.
+# returns (DataLoader, info)
+# where info is a 2 tuple containing 
+# audio_info, visual_info
+
+# which are documented in AVDataset.py
+def load_data(_args, pathname):
+
+    dataset = AudioVisualDataset(pathname, _args['streams'], _args['device'], args.image_size)
+
+    _args['info'] = [dataset.audio_info, dataset.visual_info, dataset.a_v_ratio]
+    _args['data'] = DataLoader(dataset, batch_size=args.batch_size)
+
+
+
+def main():
+
+    _args = {
+
+        "encoder" : None,
+        "decoder" : None,
+
+        "device" : torch.device(args.device),
+
+        "current-loss" : 0.0,
+        "running-loss" : 0.0,
+
+        "streams" : 0
+    }
+
+
+    # We need to load data to do some init things
+    load_data(_args, args.path +  "/" + os.listdir(args.path)[0])
+
+
+    # Encoder setting
+    if args.encoder == 'audio':
+
+        _args['encoder'] = AudioEncoder()
+
+    else:
+
+        _args['encoder'] = ImageEncoder()
+        _args['streams'] = 3
+
+
+    # Decoder setting
+    if args.decoder == 'video':
+
+        _args['decoder'] = ImageDecoder(args.image_size)
+        _args['streams'] = (_args['streams'] + 2) % 4
+    
+    else:
+
+        _args['decoder'] = AudioDecoder(_args['info'][2])
+
+
+    # Device setting
+    if args.device is not None:
+        _args['device'] = torch.device(args.device)
+
+    
+    # Train/eval loop
+    if not args.eval:
+
+        _args['encoder'].train()
+        _args['decoder'].train()
+        _args['optimizer'] = Adam(list(_args['encoder'].parameters()) + list(_args['decoder'].parameters()), args.lr)
+
+        for name in os.listdir(args.path):
+            
+            load_data(_args, args.path + '/' + name)
+
+            _args['loss'] = torch.nn.MSELoss()
+
+            parallel_loop(_args, parallel_train)
+
+
+    else:
+
+        path = os.getcwd() + "/models/"
+
+        encoders = {
+            'video' : torch.load(path + "/video_video.pt")['encoder'],
+            'audio' : torch.load(path + "/audio_audio.pt")['encoder']
+        }
+
+        decoders = {
+            'video' : torch.load(path + "/video_video.pt")['decoder'],
+            'audio' : torch.load(path + "/audio_audio.pt")['decoder']
+        }
+
+        encoders = {
+            'video' : ImageEncoder().load_state_dict(encoders['video']),
+            'audio' : AudioEncoder().load_state_dict(encoders['audio'])
+        }
+
+        decoders = {
+            'video' : ImageDecoder(args.image_size).load_state_dict(encoders['video']),
+            'audio' : AudioDecoder(_args['info'][2]).load_state_dict(encoders['audio'])
+        }
+
+        _args['encoder'], _args['decoder'] = encoders[args.encoder], decoders[args.decoder]
+
+        _args['encoder'].eval()
+        _args['decoder'].eval()
+
+        parallel_loop(_args, parallel_eval)
+    
+
+main()
