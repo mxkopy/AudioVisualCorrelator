@@ -6,7 +6,7 @@ import sys
 import cv2 as cv 
 import os
 import argparse
-import multiprocessing as mp
+import torch.multiprocessing as mp
 
 from torch.utils.data.dataloader import DataLoader
 from torch.optim import Adam
@@ -120,17 +120,16 @@ def parallel_display(_args, tq, oq):
 
     while True:
 
+        truth = tq.get().cpu().detach().numpy()
+        out = oq.get().cpu().detach().numpy()
+
         if args.display_truth:
 
-            truth = tq.get().cpu().detach().numpy()#
-
+            print('let me put the head in')
             cv.imshow('truth', truth.transpose(2, 1, 0))
-
             cv.waitKey(1)
 
         if args.display_out:
-
-            out = oq.get().cpu().detach().numpy()
 
             cv.imshow('out', out.transpose(2, 1, 0))
 
@@ -146,7 +145,7 @@ def parallel_train(_args, i, t, oq, c=-1):
     out = _args['decoder'](encoder_out)
 
     for img in out:
-        oq.put_nowait(img.detach())
+        oq.put(img.clone().cpu().detach())
 
     _args['current-loss'] = _args['loss'](out, t.to(_args['device']))
 
@@ -154,8 +153,8 @@ def parallel_train(_args, i, t, oq, c=-1):
     _args['optimizer'].step()
 
     del i
-    del out
     del t
+    del out
 
     _args['running-loss'] += _args['current-loss'].item()
     total, curr = _args['running-loss'], _args['current-loss'].item()
@@ -165,8 +164,8 @@ def parallel_train(_args, i, t, oq, c=-1):
 
 def parallel_loop(_args, callback):
 
-    tq = mp.Queue()
-    oq = mp.Queue()
+    tq = mp.Queue(maxsize=100)
+    oq = mp.Queue(maxsize=100)
 
     # out = mp.Process(target=parallel_train, args=(_args, dq, oq))
     display = mp.Process(target=parallel_display, args=(_args, tq, oq))
@@ -176,12 +175,11 @@ def parallel_loop(_args, callback):
 
         for i, t in _args['data']:
 
-            for truth in t:
-                tq.put_nowait(truth)
-
             callback(_args, i, t, oq)
 
-        display.join()
+            for truth in t:
+                tq.put(truth)
+            
 
 
 # Loads the ith data file in directory path.
