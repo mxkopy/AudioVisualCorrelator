@@ -142,7 +142,7 @@ def parallel_train(_args, i, t, oq, c=-1):
 
     _args['optimizer'].zero_grad()    
 
-    encoder_out = _args['encoder'](i)
+    encoder_out = _args['encoder'](i.to(_args['device']))
     out = _args['decoder'](encoder_out)
 
     for img in out:
@@ -152,6 +152,8 @@ def parallel_train(_args, i, t, oq, c=-1):
 
     _args['current-loss'].backward()
     _args['optimizer'].step()
+
+    del out
 
     _args['running-loss'] += _args['current-loss'].item()
     total, curr = _args['running-loss'], _args['current-loss'].item()
@@ -180,7 +182,6 @@ def parallel_loop(_args, callback):
         display.join()
 
 
-
 # Loads the ith data file in directory path.
 # returns (DataLoader, info)
 # where info is a 2 tuple containing 
@@ -189,7 +190,7 @@ def parallel_loop(_args, callback):
 # which are documented in AVDataset.py
 def load_data(_args, pathname):
 
-    dataset = AudioVisualDataset(pathname, _args['streams'], _args['device'], args.image_size)
+    dataset = AudioVisualDataset(pathname, _args['streams'], args.image_size)
 
     _args['info'] = [dataset.audio_info, dataset.visual_info, dataset.a_v_ratio]
     _args['data'] = DataLoader(dataset, batch_size=args.batch_size)
@@ -241,7 +242,11 @@ def main():
     if args.device is not None:
         _args['device'] = torch.device(args.device)
 
-    
+
+    _args['encoder'].to(_args['device'])
+    _args['decoder'].to(_args['device'])
+
+
     # Train/eval loop
     if args.eval:
 
@@ -258,22 +263,11 @@ def main():
             
             load_data(_args, args.path + '/' + name)
         
-            # Resize operation is different depending on the dataset
-
-            # resize = [
-            #     torch.nn.AdaptiveAvgPool1d(_args['info'][2]),
-            #     torchvision.transforms.Resize((args.image_size[0], args.image_size[1]))
-            # ]
-
             _args['loss'] = torch.nn.MSELoss()
 
             parallel_loop(_args, parallel_train)
 
         loop(_args, eval)
     
-
-    _args['encoder'].to(_args['device'])
-    _args['decoder'].to(_args['device'])
-
 
 main()

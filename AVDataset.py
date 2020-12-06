@@ -24,19 +24,19 @@ class AudioVisualDataset(Dataset):
 
     def video_streamer(self, index, audio_reader, video_reader, resize):
 
-        data = resize(next(self.video_reader)['data'].type(torch.float32).to(self.device)) / 255
+        data = resize(next(self.video_reader)['data'].type(torch.float32)) / 255
 
         return (data, data)
 
     def audio_video_streamer(self, index, audio_reader, video_reader, resize):
         
-        audio, video = audio_reader(index)[0].type(torch.float32).to(self.device), resize(next(self.video_reader)['data'].type(torch.float32).to(self.device)) / 255
+        audio, video = audio_reader(index)[0].type(torch.float32), resize(next(self.video_reader)['data'].type(torch.float32)) / 255
 
         return audio, video
 
     def video_audio_streamer(self, index, audio_reader, video_reader, resize):
 
-        audio, video = audio_reader(index)[0].type(torch.float32).to(self.device), resize(next(self.video_reader)['data'].type(torch.float32).to(self.device)) / 255
+        audio, video = audio_reader(index)[0].type(torch.float32), resize(next(self.video_reader)['data'].type(torch.float32)) / 255
 
         return (video, audio)
 
@@ -50,9 +50,8 @@ class AudioVisualDataset(Dataset):
         # if 2, (truth, input) -> (audio, video)
         # if 3, (truth, input) -> (video, audio)
 
-    def __init__(self, path, streams, device, img_size):
+    def __init__(self, path, streams, img_size):
 
-        self.device = device
 
         # Having this helper index makes everything go incredibly fast
         self.curr_index = -1
