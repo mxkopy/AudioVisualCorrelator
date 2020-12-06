@@ -162,14 +162,7 @@ def parallel_train(_args, i, t, oq, c=-1):
     print(f'current loss:  {curr}     total loss: {total}     iter {c}'.format(curr, total, c))
         
 
-def parallel_loop(_args, callback):
-
-    tq = mp.Queue(maxsize=100)
-    oq = mp.Queue(maxsize=100)
-
-    # out = mp.Process(target=parallel_train, args=(_args, dq, oq))
-    display = mp.Process(target=parallel_display, args=(_args, tq, oq))
-    display.start()
+def parallel_loop(_args, tq, oq, callback):
 
     for _ in range(args.epochs):
 
@@ -259,13 +252,21 @@ def main():
         _args['decoder'].train()
         _args['optimizer'] = Adam(list(_args['encoder'].parameters()) + list(_args['decoder'].parameters()), args.lr)
 
+        tq = mp.Queue(maxsize=100)
+        oq = mp.Queue(maxsize=100)
+
+        p_loop = mp.Process(target=parallel_loop, args=(_args, tq, oq, parallel_train))
+        p_display = mp.Process(target=parallel_display, args=(_args, tq, oq))
+        p_display.start()
+        # p_loop.start()
+
         for name in os.listdir(args.path):
             
             load_data(_args, args.path + '/' + name)
         
             _args['loss'] = torch.nn.MSELoss()
-
-            parallel_loop(_args, parallel_train)
+            
+            parallel_loop(_args, tq, oq, parallel_train)
 
         loop(_args, eval)
     
