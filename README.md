@@ -20,7 +20,7 @@ https://docs.opencv.org/master/da/df6/tutorial_py_table_of_contents_setup.html
 ## Usage
 
 ```bash
-python main.py encoder decoder --eval
+python main.py input output
 ```
 
 The input and output arguments can take on the values 'video' or 'audio'. By default, the network is a video autoencoder.
