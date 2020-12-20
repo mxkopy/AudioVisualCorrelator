@@ -18,8 +18,7 @@ class AudioVisualDataset(Dataset):
 
     def audio_streamer(self, index, audio_reader, video_reader, resize):
 
-        data = audio_reader(index)[0].type(torch.float32).to(self.device)
-
+        data = audio_reader(index)[0].type(torch.float32)
         return (data, data)
 
     def video_streamer(self, index, audio_reader, video_reader, resize):
@@ -44,11 +43,6 @@ class AudioVisualDataset(Dataset):
     # Initializes the dataset assuming path leads to .mp4 file
     # store_data determines if frames are cached for later use
     # streams determines the truth, input configuration
-
-        # if 0, (truth, input) -> (audio, audio)
-        # if 1, (truth, input) -> (video, video)
-        # if 2, (truth, input) -> (audio, video)
-        # if 3, (truth, input) -> (video, audio)
 
     def __init__(self, path, streams, img_size):
 
@@ -75,23 +69,23 @@ class AudioVisualDataset(Dataset):
             'num_channels' : sox_io.info(path + '.wav').num_channels }
 
         self.a_v_ratio = int(self.audio_info['sample_rate'] / self.visual_info['fps'][0])
-        self.audio_reader = lambda index: sox_io.load(path + '.wav', index * self.a_v_ratio, self.a_v_ratio, normalize=True)
+        self.audio_reader = lambda index: sox_io.load(path + '.wav', index * self.a_v_ratio, self.a_v_ratio)
 
         # Wrapper to make the iteration much more simple
         # TODO: Put this in a function
 
         self.resize = torchvision.transforms.Resize(img_size)
 
-        if streams == 0:
+        if streams == 'audioaudio':
             self.streams = self.audio_streamer
 
-        if streams == 1:
+        if streams == 'videovideo':
             self.streams = self.video_streamer
 
-        if streams == 2:
+        if streams == 'audiovideo':
             self.streams = self.audio_video_streamer
 
-        if streams == 3:
+        if streams == 'videoaudio':
             self.streams = self.video_audio_streamer
 
 

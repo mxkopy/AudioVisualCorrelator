@@ -1,20 +1,22 @@
-#AudioVisualCorrelator
+# AudioVisualCorrelator
 
 A video decoder stacked on an audio encoder. Or an audio decoder stacked on a video encoder. Whatever floats your boat.
 
-##Dependencies
+## Dependencies
 
 You need Pytorch, torchvision and torchaudio for basic functionality. OpenCV is used for image display. 
 FFMPEG is used to write audio.
 
 You can find install instructions for each at
 https://github.com/pytorch/pytorch
+
 https://github.com/pytorch/vision
+
 https://github.com/pytorch/audio/
 
 https://docs.opencv.org/master/da/df6/tutorial_py_table_of_contents_setup.html
 
-##Usage
+## Usage
 
 ```bash
 python main.py encoder decoder --eval

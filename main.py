@@ -7,6 +7,7 @@ import cv2 as cv
 import os
 import argparse
 import torch.multiprocessing as mp
+import output
 
 from torch.utils.data.dataloader import DataLoader
 from torch.optim import Adam
@@ -55,15 +56,6 @@ def display_video(_args, out, truth):
         cv.imshow('truth', truth.cpu().detach().numpy().transpose(2, 1, 0))
 
         cv.waitKey(0)
-
-
-# def write_audio(args, name, data, path=os.getcwd() + '/generated_audio/'):
-
-#     torchaudio.save(
-#         path + str(name) + '.wav', 
-#         data,
-#         sample_rate=int(dataset.audio_info['sample_rate']),
-#         channels_first=True)
 
 
 # Saves a model as a .pt file in the /models directory. Only saves the most recent one.
@@ -115,27 +107,6 @@ def loop(_args, callback):
             display_video(_args, out[0], t[0])
 
 
-# Parallelized versions of above
-def parallel_display(_args, tq, oq):
-
-    while True:
-
-        truth = tq.get().cpu().detach().numpy()
-        out = oq.get().cpu().detach().numpy()
-
-        if args.display_truth:
-
-            print('let me put the head in')
-            cv.imshow('truth', truth.transpose(2, 1, 0))
-            cv.waitKey(1)
-
-        if args.display_out:
-
-            cv.imshow('out', out.transpose(2, 1, 0))
-
-            cv.waitKey(1)
-
-
 
 def parallel_train(_args, i, t, oq, c=-1):
 
@@ -183,7 +154,7 @@ def parallel_loop(_args, tq, oq, callback):
 # which are documented in AVDataset.py
 def load_data(_args, pathname):
 
-    dataset = AudioVisualDataset(pathname, _args['streams'], args.image_size)
+    dataset = AudioVisualDataset(pathname, _args['input'] + _args['output'], args.image_size)
 
     _args['info'] = [dataset.audio_info, dataset.visual_info, dataset.a_v_ratio]
     _args['data'] = DataLoader(dataset, batch_size=args.batch_size)
@@ -202,12 +173,17 @@ def main():
         "current-loss" : 0.0,
         "running-loss" : 0.0,
 
-        "streams" : 0
+        "input" : args.input,
+        "output" : args.output
+
     }
 
     # We need to load data to do some init things
     load_data(_args, args.path +  "/" + os.listdir(args.path)[0])
 
+    _args['streams']       = args.input + args.output
+    _args['display_out']   = args.display_out
+    _args['display_truth'] = args.display_truth
 
     # Encoder setting
     if args.input == 'audio':
@@ -217,14 +193,12 @@ def main():
     else:
 
         _args['encoder'] = ImageEncoder()
-        _args['streams'] = 3
 
 
     # Decoder setting
     if args.output == 'video':
 
         _args['decoder'] = ImageDecoder(args.image_size)
-        _args['streams'] = (_args['streams'] + 2) % 4
     
     else:
 
@@ -255,10 +229,8 @@ def main():
         tq = mp.Queue(maxsize=100)
         oq = mp.Queue(maxsize=100)
 
-        p_loop = mp.Process(target=parallel_loop, args=(_args, tq, oq, parallel_train))
-        p_display = mp.Process(target=parallel_display, args=(_args, tq, oq))
+        p_display = mp.Process(target=output.parallel_display, args=(_args, tq, oq))
         p_display.start()
-        # p_loop.start()
 
         for name in os.listdir(args.path):
             
@@ -269,6 +241,5 @@ def main():
             parallel_loop(_args, tq, oq, parallel_train)
 
         loop(_args, eval)
-    
 
 main()
