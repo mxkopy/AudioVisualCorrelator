@@ -7,7 +7,8 @@ A video decoder stacked on an audio encoder. Or an audio decoder stacked on a vi
 You need Pytorch, torchvision and torchaudio for basic functionality. OpenCV is used for image display. 
 FFMPEG is used to write audio.
 
-You can find install instructions for each at
+You can find install instructions for each at:
+
 https://github.com/pytorch/pytorch
 
 https://github.com/pytorch/vision
