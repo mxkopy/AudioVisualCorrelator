@@ -29,7 +29,6 @@ args.add_argument("--batch-size", help="Sets batch size. Defaults to 4.", defaul
 args.add_argument("--epochs", help="Sets number of epochs. Defaults to 7.", default=7, type=int)
 args.add_argument("--clean", help="Number of video/audio frames run before windows are recreated and cache is emptied. Defaults to 100.", default=100, type=int)
 
-#TODO: Add audio output stream
 args.add_argument("--display-truth", help="If set, will create an opencv window with truth data.", action='store_true')
 args.add_argument("--display-out", help="If set, will create an opencv window with network output data.", action='store_true')
 args.add_argument("--image-size", help="Define the height and width of the output image in pixels. Defaults to 512 x 512.", default=(512, 512), nargs="+")
@@ -38,24 +37,6 @@ args.add_argument("--eval", help="Sets the network to evaluate each file in path
 
 args = args.parse_args()
 
-
-# def _display_video(name, frame):
-
-#     cv.imshow(name, frame)
-
-def display_video(_args, out, truth):
-    
-    if args.display_out:
-
-        cv.imshow('out', out.cpu().detach().numpy().transpose(2, 1, 0))
-        
-        cv.waitKey(0)
-
-    if args.display_out:
-
-        cv.imshow('truth', truth.cpu().detach().numpy().transpose(2, 1, 0))
-
-        cv.waitKey(0)
 
 
 # Saves a model as a .pt file in the /models directory. Only saves the most recent one.
@@ -66,47 +47,26 @@ def save_model(_args):
         'decoder' : _args['decoder'].state_dict(),
         'optimizer' : _args['optimizer'].state_dict() }, os.getcwd() + '/models/{_args[\'encoder\'] + _args[\'decoder\']}_model.pt')
 
-def eval(_args, i):
+def eval(encoder, decoder, i):
 
-    encoder_out = _args['encoder'](i)
-    decoder_out = _args['decoder'](encoder_out)
+    encoder_out = encoder(i)
+    decoder_out = decoder(encoder_out)
 
     return decoder_out
 
-# Trainer callback used in the data loop
-# Inputs are _args, truth, an input tensor, and the cleaning index (optional)
-def train(_args, i, t, c=-1):
 
-    _args['optimizer'].zero_grad()    
+# Inference is usually not too slow, so we can use the simpler sequential loop.
 
-    out = eval(_args, i)
+def eval_loop(_args):
 
-    _args['current-loss'] = _args['loss'][args.output](out, t)
-
-    _args['current-loss'].backward()
-    _args['optimizer'].step()
-
-    _args['running-loss'] += _args['current-loss'].item()
-    total, curr = _args['running-loss'], _args['current-loss'].item()
-
-    print(f'current loss:  {curr}     total loss: {total}     iter {c}'.format(curr, total, c))
-        
-    return out
-
-# Converts the dataset into the DataLoader type, and loops over it
-# Passes in _args and batched data to the callback
-
-# The callback evaluates or trains a network.
-
-def loop(_args, callback):
+    in_streamer = output.streamer(_args)
 
     for _ in range(args.epochs):
 
         for i, t in _args['data']:
-            out = callback(_args, i, t)
-            display_video(_args, out[0], t[0])
 
-
+            out = eval(_args['encoder'], _args['decoder'], i)
+            
 
 def parallel_train(_args, i, t, oq, c=-1):
 
@@ -239,7 +199,5 @@ def main():
             _args['loss'] = torch.nn.MSELoss()
             
             parallel_loop(_args, tq, oq, parallel_train)
-
-        loop(_args, eval)
 
 main()
