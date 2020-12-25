@@ -8,6 +8,7 @@ import os
 
 from torch.utils.data import Dataset
 
+
 # Contains the classes for the datasets that will be loaded in main.py
 
 # torchvision.set_video_backend('pyav')
@@ -52,7 +53,7 @@ class AudioVisualDataset(Dataset):
 
         # To ensure playback and whatnot we reencode to just audio using the native ffmpeg
 
-        os.system(f'ffmpeg -n -i {path} -acodec pcm_s16le -ar 44100 {path}.wav'.format(path))
+        os.system(f'ffmpeg -n -i {path} -acodec pcm_s16le -ar 44100 {path}.wav')
 
         # Video loading is very simple
 

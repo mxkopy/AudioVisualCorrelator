@@ -29,14 +29,13 @@ args.add_argument("--batch-size", help="Sets batch size. Defaults to 4.", defaul
 args.add_argument("--epochs", help="Sets number of epochs. Defaults to 7.", default=7, type=int)
 args.add_argument("--clean", help="Number of video/audio frames run before windows are recreated and cache is emptied. Defaults to 100.", default=100, type=int)
 
-args.add_argument("--display-truth", help="If set, will create an opencv window with truth data.", action='store_true')
-args.add_argument("--display-out", help="If set, will create an opencv window with network output data.", action='store_true')
+args.add_argument("--display-truth", help="If set, will create an opencv window with truth data, or stream audio data.", action='store_true')
+args.add_argument("--display-out", help="If set, will create an opencv window with network output data, or stream audio data.", action='store_true')
 args.add_argument("--image-size", help="Define the height and width of the output image in pixels. Defaults to 512 x 512.", default=(512, 512), nargs="+")
 
 args.add_argument("--eval", help="Sets the network to evaluate each file in path. You must have this or --train for the network to do anything.", action='store_true')
 
 args = args.parse_args()
-
 
 
 # Saves a model as a .pt file in the /models directory. Only saves the most recent one.
@@ -45,7 +44,8 @@ def save_model(_args):
     torch.save({
         'encoder' : _args['encoder'].state_dict(),
         'decoder' : _args['decoder'].state_dict(),
-        'optimizer' : _args['optimizer'].state_dict() }, os.getcwd() + '/models/{_args[\'encoder\'] + _args[\'decoder\']}_model.pt')
+        'optimizer' : _args['optimizer'].state_dict() }, os.getcwd() + f'/models/{_args["input"] + _args["output"]}.pt')
+
 
 def eval(encoder, decoder, i):
 
@@ -56,16 +56,23 @@ def eval(encoder, decoder, i):
 
 
 # Inference is usually not too slow, so we can use the simpler sequential loop.
-
+# TODO: add logic so user can set output options
 def eval_loop(_args):
 
-    in_streamer = output.streamer(_args)
+    inp_streamer = output.streamer(_args, 'input', name='input')
+    out_streamer = output.streamer(_args, 'output', name='output')
+    # tru_streamer = output.streamer(_args, 'output', name='truth')
 
     for _ in range(args.epochs):
 
         for i, t in _args['data']:
 
             out = eval(_args['encoder'], _args['decoder'], i)
+
+            inp_streamer(i.squeeze())
+            out_streamer(out.squeeze())
+            # tru_streamer(t.squeeze())
+
             
 
 def parallel_train(_args, i, t, oq, c=-1):
@@ -90,20 +97,23 @@ def parallel_train(_args, i, t, oq, c=-1):
     _args['running-loss'] += _args['current-loss'].item()
     total, curr = _args['running-loss'], _args['current-loss'].item()
 
-    print(f'current loss:  {curr}     total loss: {total}     iter {c}'.format(curr, total, c))
+    print(f'current loss:  {curr}     total loss: {total}     iter {c % args.clean}')
+    
+    if c % args.clean == 0:
+
+        save_model(_args)
         
 
 def parallel_loop(_args, tq, oq, callback):
 
     for _ in range(args.epochs):
 
-        for i, t in _args['data']:
+        for c, (i, t) in enumerate(_args['data']):
 
-            callback(_args, i, t, oq)
+            callback(_args, i, t, oq, c)
 
             for truth in t:
                 tq.put(truth)
-            
 
 
 # Loads the ith data file in directory path.
@@ -177,8 +187,22 @@ def main():
     # Train/eval loop
     if args.eval:
 
+        args.batch_size = 1
+
+        encoder_path = os.getcwd() + f'/models/{_args["input"] + _args["input"]}.pt'
+        decoder_path = os.getcwd() + f'/models/{_args["output"] + _args["output"]}.pt'
+
+        _args['encoder'].load_state_dict(torch.load(encoder_path)['encoder'])
+        _args['decoder'].load_state_dict(torch.load(decoder_path)['decoder'])
+
         _args['encoder'].eval()
         _args['decoder'].eval()
+
+        for name in os.listdir(args.path):
+            
+            load_data(_args, args.path + '/' + name)
+
+            eval_loop(_args)
 
     else:
 

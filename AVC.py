@@ -13,11 +13,27 @@ import os
 # The network, given the sound, creates a test output in that space. Training is done
 # over the MSE loss of test vectors and truth vectors. 
 
-BANDWIDTH_LIMIT = 64
+INIT_OUT_CHANNELS = 3
+
+VID_INPUT_PARAMS  = (3, INIT_OUT_CHANNELS, 3, 1)
+VID_OUTPUT_PARAMS = (INIT_OUT_CHANNELS, 3, 3, 1)
+
+AUD_INPUT_PARAMS  = (2, INIT_OUT_CHANNELS, 3, 1)
+AUD_OUTPUT_PARAMS = (INIT_OUT_CHANNELS, 2, 3, 1)
+
+CHANNELS_ENC = [
+
+    [INIT_OUT_CHANNELS, 8],
+    [8, 12],
+    [8, 8],
+    [8, 12],
+    [12, 16],
+    [16, 16]
+
+]
 
 KERNELS = [
 
-    [1, 1],
     [3, 2],
     [3, 1],
     [1, 1],
@@ -27,23 +43,14 @@ KERNELS = [
 
 ]
 
-CHANNELS_ENC = [
-
-    [3, 3],
-    [3, 4],
-    [4, 8],
-    [8, 8],
-    [8, 12],
-    [12, 16],
-    [16, 16]
-    
-]
-
 CHANNELS_DEC = [[pair[1], pair[0]] for pair in CHANNELS_ENC]
 
 LAYERS_ENC = [channels + kernels for channels, kernels in zip(CHANNELS_ENC, KERNELS)]
 LAYERS_DEC = [channels + kernels for channels, kernels in zip(CHANNELS_DEC, KERNELS)]
 
+BANDWIDTH_LIMIT = 64
+
+CUTOFF_CHANNEL = CHANNELS_ENC[1][1]
 
 class ImageEncoder(torch.nn.Module):
 
@@ -58,13 +65,13 @@ class ImageEncoder(torch.nn.Module):
         self.pool1 = torch.nn.AdaptiveAvgPool2d((512, 512)).to(device)
         self.pool2 = torch.nn.AdaptiveAvgPool2d((BANDWIDTH_LIMIT, BANDWIDTH_LIMIT)).to(device)
 
-        self.conv1 = torch.nn.Conv2d(*LAYERS_ENC[0]).to(device)
-        self.conv2 = torch.nn.Conv2d(*LAYERS_ENC[1]).to(device)
-        self.conv3 = torch.nn.Conv2d(*LAYERS_ENC[2]).to(device)
-        self.conv4 = torch.nn.Conv2d(*LAYERS_ENC[3]).to(device)
-        self.conv5 = torch.nn.Conv2d(*LAYERS_ENC[4]).to(device)
-        self.conv6 = torch.nn.Conv2d(*LAYERS_ENC[5]).to(device)
-        self.conv7 = torch.nn.Conv2d(*LAYERS_ENC[6]).to(device)
+        self.conv1 = torch.nn.Conv2d(*VID_INPUT_PARAMS).to(device)
+        self.conv2 = torch.nn.Conv2d(*LAYERS_ENC[0]).to(device)
+        self.conv3 = torch.nn.Conv2d(*LAYERS_ENC[1]).to(device)
+        self.conv4 = torch.nn.Conv2d(*LAYERS_ENC[2]).to(device)
+        self.conv5 = torch.nn.Conv2d(*LAYERS_ENC[3]).to(device)
+        self.conv6 = torch.nn.Conv2d(*LAYERS_ENC[4]).to(device)
+        self.conv7 = torch.nn.Conv2d(*LAYERS_ENC[5]).to(device)
 
 
 
@@ -76,7 +83,7 @@ class ImageEncoder(torch.nn.Module):
         out = self.pool1(out)
 
         out = self.conv2(out)
-        # out = self.relu1(out)
+        out = self.relu1(out)
         out = self.conv3(out)
         # out = self.conv4(out)
 
@@ -99,20 +106,20 @@ class ImageDecoder(torch.nn.Module):
 
         self.pool = torch.nn.AdaptiveAvgPool2d(image_size).to(device)
 
-        self.deconv1 = torch.nn.ConvTranspose2d(*LAYERS_DEC[6]).to(device)
-        self.deconv2 = torch.nn.ConvTranspose2d(*LAYERS_DEC[5]).to(device)
-        self.deconv3 = torch.nn.ConvTranspose2d(*LAYERS_DEC[4]).to(device)
-        self.deconv4 = torch.nn.ConvTranspose2d(*LAYERS_DEC[3]).to(device)
-        self.deconv5 = torch.nn.ConvTranspose2d(*LAYERS_DEC[2]).to(device)
-        self.deconv6 = torch.nn.ConvTranspose2d(*LAYERS_DEC[1]).to(device)
-        self.deconv7 = torch.nn.ConvTranspose2d(*LAYERS_DEC[0]).to(device)
+        self.deconv1 = torch.nn.ConvTranspose2d(*LAYERS_DEC[5]).to(device)
+        self.deconv2 = torch.nn.ConvTranspose2d(*LAYERS_DEC[4]).to(device)
+        self.deconv3 = torch.nn.ConvTranspose2d(*LAYERS_DEC[3]).to(device)
+        self.deconv4 = torch.nn.ConvTranspose2d(*LAYERS_DEC[2]).to(device)
+        self.deconv5 = torch.nn.ConvTranspose2d(*LAYERS_DEC[1]).to(device)
+        self.deconv6 = torch.nn.ConvTranspose2d(*LAYERS_DEC[0]).to(device)
+        self.deconv7 = torch.nn.ConvTranspose2d(*VID_OUTPUT_PARAMS).to(device)
 
 
 
 
     def forward(self, x):
 
-        out = x.view(-1, 8, BANDWIDTH_LIMIT, BANDWIDTH_LIMIT)
+        out = x.view(-1, CUTOFF_CHANNEL, BANDWIDTH_LIMIT, BANDWIDTH_LIMIT)
 
         # out = self.deconv1(out)
         # out = self.deconv2(out)
@@ -140,11 +147,15 @@ class AudioEncoder(torch.nn.Module):
 
         self.relu1 = torch.nn.ReLU().to(device)
 
-        self.conv1 = torch.nn.Conv1d(2, 2, 1, 1).to(device)
-        self.conv2 = torch.nn.Conv1d(2, 4, 3, 2).to(device)
-        self.conv3 = torch.nn.Conv1d(4, 8, 3, 1).to(device)
-        self.conv4 = torch.nn.Conv1d(8, 12, 3, 1).to(device)
-        self.conv5 = torch.nn.Conv1d(12, 16, 3, 1).to(device)
+        self.conv1 = torch.nn.Conv1d(*AUD_INPUT_PARAMS).to(device)
+        self.conv2 = torch.nn.Conv1d(*LAYERS_ENC[0]).to(device)
+        self.conv3 = torch.nn.Conv1d(*LAYERS_ENC[1]).to(device)
+        self.conv4 = torch.nn.Conv1d(*LAYERS_ENC[2]).to(device)
+        self.conv5 = torch.nn.Conv1d(*LAYERS_ENC[3]).to(device)
+        self.conv6 = torch.nn.Conv1d(*LAYERS_ENC[4]).to(device)
+        self.conv7 = torch.nn.Conv1d(*LAYERS_ENC[5]).to(device)
+
+
 
 
     def forward(self, x):
@@ -172,15 +183,17 @@ class AudioDecoder(torch.nn.Module):
 
         self.pool = torch.nn.AdaptiveAvgPool1d(frame_size)
 
-        self.deconv1 = torch.nn.ConvTranspose1d(16, 12, 3, 1).to(device)
-        self.deconv2 = torch.nn.ConvTranspose1d(12, 8, 3, 1).to(device)
-        self.deconv3 = torch.nn.ConvTranspose1d(8, 4, 3, 1).to(device)
-        self.deconv4 = torch.nn.ConvTranspose1d(4, 2, 3, 2).to(device)
-        self.deconv5 = torch.nn.ConvTranspose1d(2, 2, 1, 1).to(device)
+        self.deconv1 = torch.nn.ConvTranspose1d(*LAYERS_DEC[5]).to(device)
+        self.deconv2 = torch.nn.ConvTranspose1d(*LAYERS_DEC[4]).to(device)
+        self.deconv3 = torch.nn.ConvTranspose1d(*LAYERS_DEC[3]).to(device)
+        self.deconv4 = torch.nn.ConvTranspose1d(*LAYERS_DEC[2]).to(device)
+        self.deconv5 = torch.nn.ConvTranspose1d(*LAYERS_DEC[1]).to(device)
+        self.deconv6 = torch.nn.ConvTranspose1d(*LAYERS_DEC[0]).to(device)
+        self.deconv7 = torch.nn.ConvTranspose1d(*AUD_OUTPUT_PARAMS).to(device)
 
     def forward(self, x):
 
-        out = x.view(-1, 8, BANDWIDTH_LIMIT * BANDWIDTH_LIMIT)
+        out = x.view(-1, CUTOFF_CHANNEL, BANDWIDTH_LIMIT * BANDWIDTH_LIMIT)
 
         out = self.deconv3(out)
         out = self.deconv4(out)

@@ -16,15 +16,15 @@ def image_out(img, name='out'):
 
 def audio_out(data, stream):
 
-    stream.write(data.cpu().numpy().tobytes())
+    stream.write(data.cpu().detach().numpy().tobytes())
 
-def streamer(_args):
+def streamer(_args, key, name='out'):
 
     output_streamer = None
 
-    if _args['output'] == 'video':
+    if _args[key] == 'video':
 
-        output_streamer = lambda img: image_out(img, name='out')
+        output_streamer = lambda img: image_out(img, name=name)
     
     else:
 
@@ -51,13 +51,18 @@ def parallel_audio_out(q, stream):
     sample = q.get().cpu().numpy().tobytes()
     stream.write(sample)
 
-# TODO: Fix race conditions
+# TODO: add input stream?
+# Right now, the key value points to 'output' or 'input'
+# But since we only show the output for the training loop 
+# and only training is parallelized, we can set the key as const 'output'
+# But it would be nice to get input streams as well.
+
 def parallel_streamer(_args, key, q, name="out"):
 
     output_streamer = None
 
     # Img case
-    if _args[key] == 'video':
+    if _args['output'] == 'video':
 
         output_streamer = lambda : parallel_image_out(q, name=name)
 
