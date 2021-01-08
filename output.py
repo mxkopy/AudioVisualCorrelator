@@ -5,6 +5,7 @@ import pyaudio
 
 p = pyaudio.PyAudio()
 
+
 # base streaming functions. data must be batched
 def image_out(img, name='out'):
 
@@ -16,10 +17,12 @@ def image_out(img, name='out'):
         cv.waitKey(1)
 
 
+
 def audio_out(data, stream):
 
     out = data.cpu().detach().numpy().reshape(data.shape[1], data.shape[0] * data.shape[2])
     stream.write(out.tobytes())
+
 
 
 def streamer(_args, key, name='out'):
@@ -38,6 +41,7 @@ def streamer(_args, key, name='out'):
     return output_streamer
 
 
+
 # Parallelized helper function for output display
 # img_tensor is a torch tensor with shape [C, H, W]
 def parallel_image_out(q, name='out'):
@@ -48,12 +52,14 @@ def parallel_image_out(q, name='out'):
     cv.waitKey(1)
 
 
+
 # audio_tensor is a torch tensor with shape [C, L]
 # where L is the framerate
 def parallel_audio_out(q, stream):
 
     sample = q.get().cpu().numpy().tobytes()
     stream.write(sample)
+
 
 # TODO: add input stream?
 # Right now, the key value points to 'output' or 'input'
@@ -77,6 +83,8 @@ def parallel_streamer(_args, key, q, name="out"):
         output_streamer = lambda : parallel_audio_out(q, stream)
 
     return output_streamer
+
+
 
 # Parallelized versions of above
 def parallel_display(_args, tq, oq):
@@ -103,3 +111,4 @@ def parallel_display(_args, tq, oq):
 
         tq_streamer()
         oq_streamer()
+

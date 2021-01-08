@@ -50,9 +50,11 @@ LAYERS_DEC = [channels + kernels for channels, kernels in zip(CHANNELS_DEC, KERN
 
 
 # determines the size of the 'bottleneck' between the encoder and decoder
-BANDWIDTH_LIMIT = 16
+BANDWIDTH_LIMIT = 64
 
 CUTOFF_CHANNEL = CHANNELS_ENC[1][1]
+
+
 
 class ImageEncoder(torch.nn.Module):
 

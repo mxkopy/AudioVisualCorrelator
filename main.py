@@ -28,16 +28,25 @@ args.add_argument("--lr", help="Sets learning rate. Defaults to 1e-4.", default=
 args.add_argument("--batch-size", help="Sets batch size. Defaults to 4.", default=4, type=int)
 args.add_argument("--epochs", help="Sets number of epochs. Defaults to 7.", default=7, type=int)
 args.add_argument("--clean", help="Number of video/audio frames run before windows are recreated and cache is emptied. Defaults to 100.", default=100, type=int)
+args.add_argument("--image-size", help="Define the height and width of the output image in pixels. Defaults to 512 x 512.", default=(512, 512), nargs="+")
 
 args.add_argument("--display-truth", help="If set, will create an opencv window with truth data, or stream audio data.", action='store_true')
 args.add_argument("--display-out", help="If set, will create an opencv window with network output data, or stream audio data.", action='store_true')
-args.add_argument("--image-size", help="Define the height and width of the output image in pixels. Defaults to 512 x 512.", default=(512, 512), nargs="+")
+args.add_argument("--verbose", help="If set, prints loss at each evaulation.", action='store_true')
 
 args.add_argument("--eval", help="Sets the network to evaluate each file in path. You must have this or --train for the network to do anything.", action='store_true')
 args.add_argument("--direct", help="If specified, the network will evaluate on a model trained against the input and output, rather than an encoder of the model trained against the input and the decoder of the model trained against the output.", action='store_true')
 args.add_argument("--reload", help="If specified, the program will not load the latest model. Be careful, since it will overwrite the previously trained model.f", action='store_true')
 
 args = args.parse_args()
+
+
+# printer lambda. running an if/then every iteration is super expensive, so we set up lambdas beforehand.
+printer = lambda total, curr, c : None
+
+if args.verbose:
+
+    printer = lambda total, curr, c: print(f'current loss:  {curr}     total loss: {total}     iter {c % args.clean}')
 
 
 # Saves a model as a .pt file in the /models directory. Only saves the most recent one.
@@ -77,12 +86,9 @@ def eval_loop(_args):
 
     inp_streamer = output.streamer(_args, 'input', name='input')
     out_streamer = output.streamer(_args, 'output', name='output')
-
-    if args.output != 'audio':
-
-        tru_streamer = output.streamer(_args, 'output', name='truth')
+    tru_streamer = output.streamer(_args, 'output', name='truth')
     
-    else:
+    if args.output == 'audio':
 
         tru_streamer = lambda _ : None
 
@@ -119,8 +125,8 @@ def parallel_train(_args, i, t, oq, c=-1):
     _args['running-loss'] += _args['current-loss'].item()
     total, curr = _args['running-loss'], _args['current-loss'].item()
 
-    print(f'current loss:  {curr}     total loss: {total}     iter {c % args.clean}')
-    
+    printer(total, curr, c)
+
     if c % args.clean == 0:
 
         save_model(_args)
