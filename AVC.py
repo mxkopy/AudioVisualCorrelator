@@ -48,6 +48,8 @@ CHANNELS_DEC = [[pair[1], pair[0]] for pair in CHANNELS_ENC]
 LAYERS_ENC = [channels + kernels for channels, kernels in zip(CHANNELS_ENC, KERNELS)]
 LAYERS_DEC = [channels + kernels for channels, kernels in zip(CHANNELS_DEC, KERNELS)]
 
+
+# determines the size of the 'bottleneck' between the encoder and decoder
 BANDWIDTH_LIMIT = 16
 
 CUTOFF_CHANNEL = CHANNELS_ENC[1][1]
@@ -70,10 +72,6 @@ class ImageEncoder(torch.nn.Module):
         self.conv1 = torch.nn.Conv2d(*VID_INPUT_PARAMS).to(device)
         self.conv2 = torch.nn.Conv2d(*LAYERS_ENC[0]).to(device)
         self.conv3 = torch.nn.Conv2d(*LAYERS_ENC[1]).to(device)
-        self.conv4 = torch.nn.Conv2d(*LAYERS_ENC[2]).to(device)
-        self.conv5 = torch.nn.Conv2d(*LAYERS_ENC[3]).to(device)
-        self.conv6 = torch.nn.Conv2d(*LAYERS_ENC[4]).to(device)
-        self.conv7 = torch.nn.Conv2d(*LAYERS_ENC[5]).to(device)
 
 
 
@@ -97,22 +95,16 @@ class ImageEncoder(torch.nn.Module):
 
 class ImageDecoder(torch.nn.Module):
 
+
     def __init__(self, image_size, device=torch.device('cpu')):
 
         super(ImageDecoder, self).__init__()
 
         self.pool = torch.nn.AdaptiveAvgPool2d(image_size).to(device)
 
-        self.deconv1 = torch.nn.ConvTranspose2d(*LAYERS_DEC[5]).to(device)
-        self.deconv2 = torch.nn.ConvTranspose2d(*LAYERS_DEC[4]).to(device)
-        self.deconv3 = torch.nn.ConvTranspose2d(*LAYERS_DEC[3]).to(device)
-        self.deconv4 = torch.nn.ConvTranspose2d(*LAYERS_DEC[2]).to(device)
         self.deconv5 = torch.nn.ConvTranspose2d(*LAYERS_DEC[1]).to(device)
         self.deconv6 = torch.nn.ConvTranspose2d(*LAYERS_DEC[0]).to(device)
         self.deconv7 = torch.nn.ConvTranspose2d(*VID_OUTPUT_PARAMS).to(device)
-
-
-
 
     def forward(self, x):
 
@@ -130,7 +122,7 @@ class ImageDecoder(torch.nn.Module):
 
 class AudioEncoder(torch.nn.Module):
 
-    # bandwidth_limit determines the size of the last pooled connection. It should be the same size as the video encoder's. 
+
     def __init__(self, device=torch.device('cpu')):
         
         super(AudioEncoder, self).__init__()
@@ -143,12 +135,6 @@ class AudioEncoder(torch.nn.Module):
         self.conv1 = torch.nn.Conv1d(*AUD_INPUT_PARAMS).to(device)
         self.conv2 = torch.nn.Conv1d(*LAYERS_ENC[0]).to(device)
         self.conv3 = torch.nn.Conv1d(*LAYERS_ENC[1]).to(device)
-        self.conv4 = torch.nn.Conv1d(*LAYERS_ENC[2]).to(device)
-        self.conv5 = torch.nn.Conv1d(*LAYERS_ENC[3]).to(device)
-        self.conv6 = torch.nn.Conv1d(*LAYERS_ENC[4]).to(device)
-        self.conv7 = torch.nn.Conv1d(*LAYERS_ENC[5]).to(device)
-
-
 
     def forward(self, x):
 
@@ -175,10 +161,6 @@ class AudioDecoder(torch.nn.Module):
 
         self.pool = torch.nn.AdaptiveAvgPool1d(frame_size)
 
-        self.deconv1 = torch.nn.ConvTranspose1d(*LAYERS_DEC[5]).to(device)
-        self.deconv2 = torch.nn.ConvTranspose1d(*LAYERS_DEC[4]).to(device)
-        self.deconv3 = torch.nn.ConvTranspose1d(*LAYERS_DEC[3]).to(device)
-        self.deconv4 = torch.nn.ConvTranspose1d(*LAYERS_DEC[2]).to(device)
         self.deconv5 = torch.nn.ConvTranspose1d(*LAYERS_DEC[1]).to(device)
         self.deconv6 = torch.nn.ConvTranspose1d(*LAYERS_DEC[0]).to(device)
         self.deconv7 = torch.nn.ConvTranspose1d(*AUD_OUTPUT_PARAMS).to(device)

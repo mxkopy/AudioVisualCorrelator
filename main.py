@@ -35,6 +35,7 @@ args.add_argument("--image-size", help="Define the height and width of the outpu
 
 args.add_argument("--eval", help="Sets the network to evaluate each file in path. You must have this or --train for the network to do anything.", action='store_true')
 args.add_argument("--direct", help="If specified, the network will evaluate on a model trained against the input and output, rather than an encoder of the model trained against the input and the decoder of the model trained against the output.", action='store_true')
+args.add_argument("--reload", help="If specified, the program will not load the latest model. Be careful, since it will overwrite the previously trained model.f", action='store_true')
 
 args = args.parse_args()
 
@@ -46,6 +47,20 @@ def save_model(_args):
         'encoder' : _args['encoder'].state_dict(),
         'decoder' : _args['decoder'].state_dict(),
         'optimizer' : _args['optimizer'].state_dict() }, os.getcwd() + f'/models/{_args["input"] + _args["output"]}.pt')
+
+
+def load_model(_args):
+
+        encoder_path = os.getcwd() + f'/models/{_args["input"] + _args["input"]}.pt'
+        decoder_path = os.getcwd() + f'/models/{_args["output"] + _args["output"]}.pt'
+
+        if args.direct or not args.eval:
+
+            encoder_path = os.getcwd() + f'/models/{_args["input"] + _args["output"]}.pt'
+            decoder_path = encoder_path
+
+        _args['encoder'].load_state_dict(torch.load(encoder_path)['encoder'])
+        _args['decoder'].load_state_dict(torch.load(decoder_path)['decoder'])
 
 
 def eval(encoder, decoder, i):
@@ -62,7 +77,14 @@ def eval_loop(_args):
 
     inp_streamer = output.streamer(_args, 'input', name='input')
     out_streamer = output.streamer(_args, 'output', name='output')
-    # tru_streamer = output.streamer(_args, 'output', name='truth')
+
+    if args.output is not 'audio':
+
+        tru_streamer = output.streamer(_args, 'output', name='truth')
+    
+    else:
+
+        tru_streamer = lambda _ : None
 
     for _ in range(args.epochs):
 
@@ -70,11 +92,10 @@ def eval_loop(_args):
 
             out = eval(_args['encoder'], _args['decoder'], i)
 
-            inp_streamer(i.squeeze())
-            out_streamer(out.squeeze())
-            # tru_streamer(t.squeeze())
+            inp_streamer(i)
+            out_streamer(out)
+            tru_streamer(t)
 
-            
 
 def parallel_train(_args, i, t, oq, c=-1):
 
@@ -107,6 +128,10 @@ def parallel_train(_args, i, t, oq, c=-1):
 
 def parallel_loop(_args, tq, oq, callback):
 
+    if not args.reload:
+
+        load_model(_args)
+
     for _ in range(args.epochs):
 
         for c, (i, t) in enumerate(_args['data']):
@@ -131,7 +156,6 @@ def load_data(_args, pathname):
     _args['data'] = DataLoader(dataset, batch_size=args.batch_size)
 
 
-
 def main():
 
     _args = {
@@ -151,7 +175,7 @@ def main():
 
     if args.eval:
 
-        args.batch_size = 1
+        args.batch_size = 16
 
     load_data(_args, args.path +  "/" + os.listdir(args.path)[0])
 
@@ -191,25 +215,9 @@ def main():
     # Train/eval loop
     if args.eval:
 
-        args.batch_size = 1
-
-        encoder_path = os.getcwd() + f'/models/{_args["input"] + _args["input"]}.pt'
-        decoder_path = os.getcwd() + f'/models/{_args["output"] + _args["output"]}.pt'
-
-        if args.direct:
-
-            encoder_path = os.getcwd() + f'/models/{_args["input"] + _args["output"]}.pt'
-            decoder_path = encoder_path
-
-        _args['encoder'].load_state_dict(torch.load(encoder_path)['encoder'])
-        _args['decoder'].load_state_dict(torch.load(decoder_path)['decoder'])
-
-        _args['encoder'].eval()
-        _args['decoder'].eval()
-
-        for name in os.listdir(args.path):
-            
-            eval_loop(_args)
+        load_model(_args)
+        
+        eval_loop(_args)
 
     else:
 

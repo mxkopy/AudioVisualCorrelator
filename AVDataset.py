@@ -112,11 +112,6 @@ class AudioVisualDataset(Dataset):
         return self.streamer(index)
 
 
-        # self.video_reader.seek(index / self.visual_info['fps'][0])
-
-        # return self.streamer(index)
-
-
     def __len__(self):
 
         return int(self.visual_info['duration'][0] * self.visual_info['fps'][0])

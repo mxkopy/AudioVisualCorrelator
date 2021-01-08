@@ -5,18 +5,22 @@ import pyaudio
 
 p = pyaudio.PyAudio()
 
-
+# base streaming functions. data must be batched
 def image_out(img, name='out'):
 
     img_tensor = img.cpu().detach().numpy()
 
-    cv.imshow(name, img_tensor.transpose(2, 1, 0))
-    cv.waitKey(1)
+    for img in img_tensor:
+
+        cv.imshow(name, img.transpose(2, 1, 0))
+        cv.waitKey(1)
 
 
 def audio_out(data, stream):
 
-    stream.write(data.cpu().detach().numpy().tobytes())
+    out = data.cpu().detach().numpy().reshape(data.shape[1], data.shape[0] * data.shape[2])
+    stream.write(out.tobytes())
+
 
 def streamer(_args, key, name='out'):
 
