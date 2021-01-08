@@ -34,6 +34,7 @@ args.add_argument("--display-out", help="If set, will create an opencv window wi
 args.add_argument("--image-size", help="Define the height and width of the output image in pixels. Defaults to 512 x 512.", default=(512, 512), nargs="+")
 
 args.add_argument("--eval", help="Sets the network to evaluate each file in path. You must have this or --train for the network to do anything.", action='store_true')
+args.add_argument("--direct", help="If specified, the network will evaluate on a model trained against the input and output, rather than an encoder of the model trained against the input and the decoder of the model trained against the output.", action='store_true')
 
 args = args.parse_args()
 
@@ -148,7 +149,10 @@ def main():
 
     }
 
-    # We need to load data to do some init things
+    if args.eval:
+
+        args.batch_size = 1
+
     load_data(_args, args.path +  "/" + os.listdir(args.path)[0])
 
     _args['streams']       = args.input + args.output
@@ -192,6 +196,11 @@ def main():
         encoder_path = os.getcwd() + f'/models/{_args["input"] + _args["input"]}.pt'
         decoder_path = os.getcwd() + f'/models/{_args["output"] + _args["output"]}.pt'
 
+        if args.direct:
+
+            encoder_path = os.getcwd() + f'/models/{_args["input"] + _args["output"]}.pt'
+            decoder_path = encoder_path
+
         _args['encoder'].load_state_dict(torch.load(encoder_path)['encoder'])
         _args['decoder'].load_state_dict(torch.load(decoder_path)['decoder'])
 
@@ -200,8 +209,6 @@ def main():
 
         for name in os.listdir(args.path):
             
-            load_data(_args, args.path + '/' + name)
-
             eval_loop(_args)
 
     else:
@@ -217,8 +224,6 @@ def main():
         p_display.start()
 
         for name in os.listdir(args.path):
-            
-            load_data(_args, args.path + '/' + name)
         
             _args['loss'] = torch.nn.MSELoss()
             

@@ -48,7 +48,7 @@ CHANNELS_DEC = [[pair[1], pair[0]] for pair in CHANNELS_ENC]
 LAYERS_ENC = [channels + kernels for channels, kernels in zip(CHANNELS_ENC, KERNELS)]
 LAYERS_DEC = [channels + kernels for channels, kernels in zip(CHANNELS_DEC, KERNELS)]
 
-BANDWIDTH_LIMIT = 64
+BANDWIDTH_LIMIT = 16
 
 CUTOFF_CHANNEL = CHANNELS_ENC[1][1]
 
@@ -64,6 +64,8 @@ class ImageEncoder(torch.nn.Module):
 
         self.pool1 = torch.nn.AdaptiveAvgPool2d((512, 512)).to(device)
         self.pool2 = torch.nn.AdaptiveAvgPool2d((BANDWIDTH_LIMIT, BANDWIDTH_LIMIT)).to(device)
+        
+        self.dense = torch.nn.Linear(BANDWIDTH_LIMIT * BANDWIDTH_LIMIT, BANDWIDTH_LIMIT * BANDWIDTH_LIMIT)
 
         self.conv1 = torch.nn.Conv2d(*VID_INPUT_PARAMS).to(device)
         self.conv2 = torch.nn.Conv2d(*LAYERS_ENC[0]).to(device)
@@ -85,14 +87,9 @@ class ImageEncoder(torch.nn.Module):
         out = self.conv2(out)
         out = self.relu1(out)
         out = self.conv3(out)
-        # out = self.conv4(out)
 
-        # out = self.relu2(out)
-        # out = self.conv5(out)
-        # out = self.conv6(out)
-        # out = self.conv7(out)
-        out = self.pool2(out)
-
+        out = self.pool2(out).view(-1, CUTOFF_CHANNEL, BANDWIDTH_LIMIT * BANDWIDTH_LIMIT)
+        out = self.dense(out)
 
         return out
 
@@ -121,10 +118,6 @@ class ImageDecoder(torch.nn.Module):
 
         out = x.view(-1, CUTOFF_CHANNEL, BANDWIDTH_LIMIT, BANDWIDTH_LIMIT)
 
-        # out = self.deconv1(out)
-        # out = self.deconv2(out)
-        # out = self.deconv3(out)
-        # out = self.deconv4(out)
         out = self.deconv5(out)
         out = self.deconv6(out)
         out = self.deconv7(out)
@@ -154,7 +147,6 @@ class AudioEncoder(torch.nn.Module):
         self.conv5 = torch.nn.Conv1d(*LAYERS_ENC[3]).to(device)
         self.conv6 = torch.nn.Conv1d(*LAYERS_ENC[4]).to(device)
         self.conv7 = torch.nn.Conv1d(*LAYERS_ENC[5]).to(device)
-
 
 
 
@@ -195,9 +187,9 @@ class AudioDecoder(torch.nn.Module):
 
         out = x.view(-1, CUTOFF_CHANNEL, BANDWIDTH_LIMIT * BANDWIDTH_LIMIT)
 
-        out = self.deconv3(out)
-        out = self.deconv4(out)
         out = self.deconv5(out)
+        out = self.deconv6(out)
+        out = self.deconv7(out)
 
         out = self.pool(out)
 

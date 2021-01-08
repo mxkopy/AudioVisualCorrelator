@@ -9,19 +9,24 @@ CHUNK = 1024
 
 wf = wave.open('/home/mxkopy/Programming/AudioVisualCorrelator/video/0.mp4.wav', 'rb')
 
-# instantiate PyAudio (1)
 p = pyaudio.PyAudio()
 
-# open stream (2)
 stream = p.open(format=pyaudio.paFloat32,
                 channels=wf.getnchannels(),
                 rate=wf.getframerate(),
                 output=True)
 
-# read data
-# data = wf.readframes(CHUNK)
-
 AVD = AudioVisualDataset('/home/mxkopy/Programming/AudioVisualCorrelator/video/0.mp4', 'audiovideo', (512, 512))
+
+AVD.a_v_ratio = 44100
+
+print(AVD.audio_reader(10).shape)
+
+i = 0
+while True:
+
+    stream.write(AVD.audio_reader(i).numpy()[0].tobytes())
+    i += 1 
 
 for data in AVD:
     # print(data[0].dtype)
