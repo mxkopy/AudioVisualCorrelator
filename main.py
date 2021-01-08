@@ -78,7 +78,7 @@ def eval_loop(_args):
     inp_streamer = output.streamer(_args, 'input', name='input')
     out_streamer = output.streamer(_args, 'output', name='output')
 
-    if args.output is not 'audio':
+    if args.output != 'audio':
 
         tru_streamer = output.streamer(_args, 'output', name='truth')
     
