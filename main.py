@@ -181,7 +181,7 @@ def main():
 
     if args.eval:
 
-        args.batch_size = 16
+        args.batch_size = 1
 
     load_data(_args, args.path +  "/" + os.listdir(args.path)[0])
 

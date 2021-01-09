@@ -70,7 +70,7 @@ class AudioVisualDataset(Dataset):
             'num_channels' : sox_io.info(path + '.wav').num_channels }
 
         self.a_v_ratio = int(self.audio_info['sample_rate'] / self.visual_info['fps'][0])
-        self.audio_reader = lambda index: sox_io.load(path + '.wav', index * self.a_v_ratio, self.a_v_ratio)
+        self.audio_reader = lambda index: sox_io.load(path + '.wav', index * self.a_v_ratio, self.a_v_ratio, normalize=True)
 
         # Wrapper to make the iteration much more simple
         # TODO: Put this in a function

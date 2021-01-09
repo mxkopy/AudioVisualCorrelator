@@ -50,10 +50,9 @@ LAYERS_DEC = [channels + kernels for channels, kernels in zip(CHANNELS_DEC, KERN
 
 
 # determines the size of the 'bottleneck' between the encoder and decoder
-BANDWIDTH_LIMIT = 64
+BANDWIDTH_LIMIT = 16
 
-CUTOFF_CHANNEL = CHANNELS_ENC[1][1]
-
+CUTOFF_CHANNEL = CHANNELS_ENC[0][1]
 
 
 class ImageEncoder(torch.nn.Module):
@@ -85,8 +84,8 @@ class ImageEncoder(torch.nn.Module):
         out = self.pool1(out)
 
         out = self.conv2(out)
-        out = self.relu1(out)
-        out = self.conv3(out)
+        # out = self.relu1(out)
+        # out = self.conv3(out)
 
         out = self.pool2(out).view(-1, CUTOFF_CHANNEL, BANDWIDTH_LIMIT * BANDWIDTH_LIMIT)
         out = self.dense(out)
@@ -112,7 +111,7 @@ class ImageDecoder(torch.nn.Module):
 
         out = x.view(-1, CUTOFF_CHANNEL, BANDWIDTH_LIMIT, BANDWIDTH_LIMIT)
 
-        out = self.deconv5(out)
+        # out = self.deconv5(out)
         out = self.deconv6(out)
         out = self.deconv7(out)
 
@@ -136,7 +135,7 @@ class AudioEncoder(torch.nn.Module):
 
         self.conv1 = torch.nn.Conv1d(*AUD_INPUT_PARAMS).to(device)
         self.conv2 = torch.nn.Conv1d(*LAYERS_ENC[0]).to(device)
-        self.conv3 = torch.nn.Conv1d(*LAYERS_ENC[1]).to(device)
+        # self.conv3 = torch.nn.Conv1d(*LAYERS_ENC[1]).to(device)
 
     def forward(self, x):
 
@@ -145,8 +144,8 @@ class AudioEncoder(torch.nn.Module):
         out = self.conv1(out)
         out = self.pool1(out)
         out = self.conv2(out)
-        out = self.relu1(out)
-        out = self.conv3(out)
+        # out = self.relu1(out)
+        # out = self.conv3(out)
 
         out = self.pool2(out)
 
@@ -171,7 +170,9 @@ class AudioDecoder(torch.nn.Module):
 
         out = x.view(-1, CUTOFF_CHANNEL, BANDWIDTH_LIMIT * BANDWIDTH_LIMIT)
 
-        out = self.deconv5(out)
+        self.dense = torch.nn.Linear(BANDWIDTH_LIMIT * BANDWIDTH_LIMIT, BANDWIDTH_LIMIT * BANDWIDTH_LIMIT)
+
+        # out = self.deconv5(out)
         out = self.deconv6(out)
         out = self.deconv7(out)
 
